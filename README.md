@@ -2,8 +2,8 @@
 
 # n8n-nodes-extended-git
 
-This repo contains example nodes to help you get started building your own custom integrations for [n8n](https://n8n.io). It includes the node linter and other dependencies.
-This repository also provides a Git node that lets you run Git commands directly from your workflows.
+This repo helps you get started building your own custom integrations for [n8n](https://n8n.io). It includes the node linter and other dependencies.
+This repository also provides a **Git Extended** node that lets you run Git commands directly from your workflows.
 
 To make your custom node available to the community, you must create it as an npm package, and [submit it to the npm registry](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry).
 
@@ -30,7 +30,7 @@ These are the basic steps for working with the starter. For detailed guidance on
    ```
 3. Run `npm i` to install dependencies.
 4. Open the project in your editor.
-5. Browse the examples in `/nodes` and `/credentials`. Modify the examples, or replace them with your own nodes.
+5. Add your node and credential files to `/nodes` and `/credentials`.
 6. Update the `package.json` to match your details.
 7. Run `npm lint` to check for errors or `npm lintfix` to automatically fix errors when possible.
 8. Test your node locally. Refer to [Run your node locally](https://docs.n8n.io/integrations/creating-nodes/test/run-node-locally/) for guidance.
@@ -38,20 +38,14 @@ These are the basic steps for working with the starter. For detailed guidance on
 10. Update the LICENSE file to use your details.
 11. [Publish](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry) your package to npm.
 
-## Git node
+## Git Extended node
 
-This repository includes a Git node located in `/nodes/Git`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout` and `merge`.
+This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout` and `merge`.
 
 ### Running Git commands
 
 The node relies on the `git` binary available on the machine running n8n. Make sure `git` is installed and accessible from the command line.
 
-### Example workflow
-
-1. Add the **Git** node to your workflow.
-2. Set **Operation** to `clone`.
-3. Provide the repository URL and target path.
-4. Execute the workflow to clone the repository. The node outputs the command's `stdout` and `stderr`.
 
 ## More information
 
