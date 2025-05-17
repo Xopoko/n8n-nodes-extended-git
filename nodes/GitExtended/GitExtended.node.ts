@@ -9,6 +9,7 @@ export class GitExtended implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'Git Extended',
     name: 'gitExtended',
+    icon: 'file:gitExtended.svg',
     group: ['transform'],
     version: 1,
     subtitle: '={{$parameter["operation"]}}',
