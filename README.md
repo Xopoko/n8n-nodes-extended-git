@@ -42,6 +42,8 @@ These are the basic steps for working with the starter. For detailed guidance on
 
 This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout` and `merge`.
 
+Every operation requires a **Repository Path** parameter that defines the directory from which the Git command is executed. For `clone`, the repository will be created inside this directory.
+
 ### Running Git commands
 
 The node relies on the `git` binary available on the machine running n8n. Make sure `git` is installed and accessible from the command line.

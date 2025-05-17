@@ -39,3 +39,35 @@ test('unsupported operation throws error', async () => {
     await node.execute.call(context);
   }, /Unsupported operation/);
 });
+
+test('clone operation clones repository', async () => {
+  const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-src-'));
+  const repoDir = path.join(sourceDir, 'repo');
+  fs.mkdirSync(repoDir);
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git init', { cwd: repoDir });
+  // Configure git user for committing inside the test repository
+  require('child_process').execSync('git config user.email "test@example.com"', {
+    cwd: repoDir,
+  });
+  require('child_process').execSync('git config user.name "Test"', {
+    cwd: repoDir,
+  });
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+
+  const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-clone-'));
+  const node = new GitExtended();
+  const targetPath = path.join(cloneDir, 'cloned');
+  const context = new TestContext({
+    operation: 'clone',
+    repoPath: cloneDir,
+    repoUrl: repoDir,
+    targetPath,
+  });
+  await node.execute.call(context);
+  assert.ok(fs.existsSync(path.join(targetPath, '.git')));
+
+  fs.rmSync(sourceDir, { recursive: true, force: true });
+  fs.rmSync(cloneDir, { recursive: true, force: true });
+});
