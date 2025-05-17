@@ -88,12 +88,8 @@ export class GitExtended implements INodeType {
         name: 'repoPath',
         type: 'string',
         default: '.',
-        description: 'Filesystem path to the git repository',
-        displayOptions: {
-          hide: {
-            operation: ['clone'],
-          },
-        },
+        description:
+          'Filesystem path to run the Git command from. For clone, the repository will be created inside this path.',
       },
       {
         displayName: 'Repository URL',
@@ -192,15 +188,14 @@ export class GitExtended implements INodeType {
     for (let i = 0; i < items.length; i++) {
       try {
         const operation = this.getNodeParameter('operation', i) as string;
-        let repoPath = '';
+        const repoPath = this.getNodeParameter('repoPath', i) as string;
         let command = '';
 
         if (operation === 'clone') {
           const repoUrl = this.getNodeParameter('repoUrl', i) as string;
           const targetPath = this.getNodeParameter('targetPath', i) as string;
-          command = `git clone ${repoUrl} "${targetPath}"`;
+          command = `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"`;
         } else {
-          repoPath = this.getNodeParameter('repoPath', i) as string;
 
           if (operation === 'init') {
             command = `git -C "${repoPath}" init`;
