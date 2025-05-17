@@ -2,8 +2,9 @@ name: Publish to npm
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -14,7 +15,11 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
-      - run: npm install
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
       - run: npm run build
       - run: npm publish --access public
         env:
