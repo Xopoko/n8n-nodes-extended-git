@@ -1,8 +1,9 @@
 ![Banner image](https://user-images.githubusercontent.com/10284570/173569848-c624317f-42b1-45a6-ab09-f0ea3c247648.png)
 
-# n8n-nodes-starter
+# n8n-nodes-extended-git
 
 This repo contains example nodes to help you get started building your own custom integrations for [n8n](https://n8n.io). It includes the node linter and other dependencies.
+This repository also provides a Git node that lets you run Git commands directly from your workflows.
 
 To make your custom node available to the community, you must create it as an npm package, and [submit it to the npm registry](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry).
 
@@ -36,6 +37,21 @@ These are the basic steps for working with the starter. For detailed guidance on
 9. Replace this README with documentation for your node. Use the [README_TEMPLATE](README_TEMPLATE.md) to get started.
 10. Update the LICENSE file to use your details.
 11. [Publish](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry) your package to npm.
+
+## Git node
+
+This repository includes a Git node located in `/nodes/Git`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout` and `merge`.
+
+### Running Git commands
+
+The node relies on the `git` binary available on the machine running n8n. Make sure `git` is installed and accessible from the command line.
+
+### Example workflow
+
+1. Add the **Git** node to your workflow.
+2. Set **Operation** to `clone`.
+3. Provide the repository URL and target path.
+4. Execute the workflow to clone the repository. The node outputs the command's `stdout` and `stderr`.
 
 ## More information
 
