@@ -5,16 +5,16 @@ import { promisify } from 'util';
 
 const exec = promisify(execCallback);
 
-export class Git implements INodeType {
+export class GitExtended implements INodeType {
   description: INodeTypeDescription = {
-    displayName: 'Git',
-    name: 'git',
+    displayName: 'Git Extended',
+    name: 'gitExtended',
     group: ['transform'],
     version: 1,
     subtitle: '={{$parameter["operation"]}}',
     description: 'Run Git commands',
     defaults: {
-      name: 'Git',
+      name: 'Git Extended',
     },
     inputs: [NodeConnectionType.Main],
     outputs: [NodeConnectionType.Main],
