@@ -26,49 +26,9 @@ export class GitExtended implements INodeType {
         noDataExpression: true,
         options: [
           {
-            name: 'Clone',
-            value: 'clone',
-            action: 'Clone repository',
-          },
-          {
-            name: 'Init',
-            value: 'init',
-            action: 'Initialize repository',
-          },
-          {
             name: 'Add',
             value: 'add',
             action: 'Add files',
-          },
-          {
-            name: 'Commit',
-            value: 'commit',
-            action: 'Create commit',
-          },
-          {
-            name: 'Push',
-            value: 'push',
-            action: 'Push branch',
-          },
-          {
-            name: 'Pull',
-            value: 'pull',
-            action: 'Pull branch',
-          },
-          {
-            name: 'Status',
-            value: 'status',
-            action: 'Show status',
-          },
-          {
-            name: 'Log',
-            value: 'log',
-            action: 'Show log',
-          },
-          {
-            name: 'Switch Branch',
-            value: 'switch',
-            action: 'Switch branch',
           },
           {
             name: 'Checkout',
@@ -76,13 +36,52 @@ export class GitExtended implements INodeType {
             action: 'Checkout',
           },
           {
+            name: 'Clone',
+            value: 'clone',
+            action: 'Clone repository',
+          },
+          {
+            name: 'Commit',
+            value: 'commit',
+            action: 'Create commit',
+          },
+          {
+            name: 'Init',
+            value: 'init',
+            action: 'Initialize repository',
+          },
+          {
+            name: 'Log',
+            value: 'log',
+            action: 'Show log',
+          },
+          {
             name: 'Merge',
             value: 'merge',
             action: 'Merge branch',
           },
+          {
+            name: 'Pull',
+            value: 'pull',
+            action: 'Pull branch',
+          },
+          {
+            name: 'Push',
+            value: 'push',
+            action: 'Push branch',
+          },
+          {
+            name: 'Status',
+            value: 'status',
+            action: 'Show status',
+          },
+          {
+            name: 'Switch Branch',
+            value: 'switch',
+            action: 'Switch branch',
+          },
         ],
         default: 'status',
-        description: 'The git operation to perform',
       },
       {
         displayName: 'Repository Path',
@@ -140,7 +139,6 @@ export class GitExtended implements INodeType {
         type: 'string',
         default: '',
         required: true,
-        description: 'Commit message',
         displayOptions: {
           show: {
             operation: ['commit'],
@@ -238,7 +236,7 @@ export class GitExtended implements INodeType {
             const target = this.getNodeParameter('target', i) as string;
             command = `git -C "${repoPath}" merge ${target}`;
           } else {
-            throw new Error(`Unsupported operation ${operation}`);
+            throw new NodeOperationError(this.getNode(), `Unsupported operation ${operation}`, { itemIndex: i });
           }
         }
 
