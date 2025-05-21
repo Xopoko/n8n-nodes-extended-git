@@ -40,6 +40,11 @@ export class GitExtended implements INodeType {
             action: 'Apply patch',
           },
           {
+            name: 'Branches',
+            value: 'branches',
+            action: 'List branches',
+          },
+          {
             name: 'Checkout',
             value: 'checkout',
             action: 'Checkout',
@@ -53,6 +58,11 @@ export class GitExtended implements INodeType {
             name: 'Commit',
             value: 'commit',
             action: 'Create commit',
+          },
+          {
+            name: 'Commits',
+            value: 'commits',
+            action: 'List commits',
           },
           {
             name: 'Init',
@@ -287,6 +297,10 @@ export class GitExtended implements INodeType {
             command = `git -C "${repoPath}" pull`;
             if (remote) command += ` ${remote}`;
             if (branch) command += ` ${branch}`;
+          } else if (operation === 'branches') {
+            command = `git -C "${repoPath}" branch`;
+          } else if (operation === 'commits') {
+            command = `git -C "${repoPath}" log --oneline`;
           } else if (operation === 'status') {
             command = `git -C "${repoPath}" status`;
           } else if (operation === 'log') {
