@@ -8,6 +8,108 @@ import { promisify } from 'util';
 
 const exec = promisify(execCallback);
 
+enum Operation {
+  Add = 'add',
+  ApplyPatch = 'applyPatch',
+  Branches = 'branches',
+  Checkout = 'checkout',
+  Clone = 'clone',
+  Commit = 'commit',
+  Commits = 'commits',
+  Init = 'init',
+  Log = 'log',
+  Merge = 'merge',
+  Pull = 'pull',
+  Push = 'push',
+  Status = 'status',
+  Switch = 'switch',
+}
+
+type CommandResult = { command: string; tempFile?: string };
+
+type CommandBuilder = (
+  this: IExecuteFunctions,
+  index: number,
+  repoPath: string,
+) => Promise<CommandResult>;
+
+const commandMap: Record<Operation, CommandBuilder> = {
+  async [Operation.Clone](index, repoPath) {
+    const repoUrl = this.getNodeParameter('repoUrl', index) as string;
+    const targetPath = this.getNodeParameter('targetPath', index) as string;
+    return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
+  },
+  async [Operation.Init](_index, repoPath) {
+    return { command: `git -C "${repoPath}" init` };
+  },
+  async [Operation.Add](index, repoPath) {
+    const files = this.getNodeParameter('files', index) as string;
+    return { command: `git -C "${repoPath}" add ${files}` };
+  },
+  async [Operation.Commit](index, repoPath) {
+    const message = this.getNodeParameter('commitMessage', index) as string;
+    return {
+      command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
+    };
+  },
+  async [Operation.Push](index, repoPath) {
+    const remote = this.getNodeParameter('remote', index) as string;
+    const branch = this.getNodeParameter('branch', index) as string;
+    let cmd = `git -C "${repoPath}" push`;
+    if (remote) cmd += ` ${remote}`;
+    if (branch) cmd += ` ${branch}`;
+    return { command: cmd };
+  },
+  async [Operation.Pull](index, repoPath) {
+    const remote = this.getNodeParameter('remote', index) as string;
+    const branch = this.getNodeParameter('branch', index) as string;
+    let cmd = `git -C "${repoPath}" pull`;
+    if (remote) cmd += ` ${remote}`;
+    if (branch) cmd += ` ${branch}`;
+    return { command: cmd };
+  },
+  async [Operation.Branches](_index, repoPath) {
+    return { command: `git -C "${repoPath}" branch` };
+  },
+  async [Operation.Commits](_index, repoPath) {
+    return { command: `git -C "${repoPath}" log --oneline` };
+  },
+  async [Operation.Status](_index, repoPath) {
+    return { command: `git -C "${repoPath}" status` };
+  },
+  async [Operation.Log](_index, repoPath) {
+    return { command: `git -C "${repoPath}" log` };
+  },
+  async [Operation.Switch](index, repoPath) {
+    const target = this.getNodeParameter('target', index) as string;
+    return { command: `git -C "${repoPath}" switch ${target}` };
+  },
+  async [Operation.Checkout](index, repoPath) {
+    const target = this.getNodeParameter('target', index) as string;
+    return { command: `git -C "${repoPath}" checkout ${target}` };
+  },
+  async [Operation.Merge](index, repoPath) {
+    const target = this.getNodeParameter('target', index) as string;
+    return { command: `git -C "${repoPath}" merge ${target}` };
+  },
+  async [Operation.ApplyPatch](index, repoPath) {
+    const patchInput = this.getNodeParameter('patchInput', index) as string;
+    const binary = this.getNodeParameter('binary', index) as boolean;
+    let patchFile: string;
+    let tempFile: string | undefined;
+    if (patchInput === 'text') {
+      const patchText = this.getNodeParameter('patchText', index) as string;
+      tempFile = join(tmpdir(), `patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      await fs.writeFile(tempFile, patchText);
+      patchFile = tempFile;
+    } else {
+      patchFile = this.getNodeParameter('patchFile', index) as string;
+    }
+    const command = `git -C "${repoPath}" apply${binary ? ' --binary' : ''} "${patchFile}"`;
+    return { command, tempFile };
+  },
+};
+
 export class GitExtended implements INodeType {
   description: INodeTypeDescription = {
     displayName: 'Git Extended',
@@ -266,71 +368,15 @@ export class GitExtended implements INodeType {
 
     for (let i = 0; i < items.length; i++) {
       try {
-        const operation = this.getNodeParameter('operation', i) as string;
+        const operation = this.getNodeParameter('operation', i) as Operation;
         const repoPath = this.getNodeParameter('repoPath', i) as string;
-        let command = '';
-        let tempFile: string | undefined;
 
-        if (operation === 'clone') {
-          const repoUrl = this.getNodeParameter('repoUrl', i) as string;
-          const targetPath = this.getNodeParameter('targetPath', i) as string;
-          command = `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"`;
-        } else {
-
-          if (operation === 'init') {
-            command = `git -C "${repoPath}" init`;
-          } else if (operation === 'add') {
-            const files = this.getNodeParameter('files', i) as string;
-            command = `git -C "${repoPath}" add ${files}`;
-          } else if (operation === 'commit') {
-            const message = this.getNodeParameter('commitMessage', i) as string;
-            command = `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`;
-          } else if (operation === 'push') {
-            const remote = this.getNodeParameter('remote', i) as string;
-            const branch = this.getNodeParameter('branch', i) as string;
-            command = `git -C "${repoPath}" push`;
-            if (remote) command += ` ${remote}`;
-            if (branch) command += ` ${branch}`;
-          } else if (operation === 'pull') {
-            const remote = this.getNodeParameter('remote', i) as string;
-            const branch = this.getNodeParameter('branch', i) as string;
-            command = `git -C "${repoPath}" pull`;
-            if (remote) command += ` ${remote}`;
-            if (branch) command += ` ${branch}`;
-          } else if (operation === 'branches') {
-            command = `git -C "${repoPath}" branch`;
-          } else if (operation === 'commits') {
-            command = `git -C "${repoPath}" log --oneline`;
-          } else if (operation === 'status') {
-            command = `git -C "${repoPath}" status`;
-          } else if (operation === 'log') {
-            command = `git -C "${repoPath}" log`;
-          } else if (operation === 'switch') {
-            const target = this.getNodeParameter('target', i) as string;
-            command = `git -C "${repoPath}" switch ${target}`;
-          } else if (operation === 'checkout') {
-            const target = this.getNodeParameter('target', i) as string;
-            command = `git -C "${repoPath}" checkout ${target}`;
-          } else if (operation === 'merge') {
-            const target = this.getNodeParameter('target', i) as string;
-            command = `git -C "${repoPath}" merge ${target}`;
-          } else if (operation === 'applyPatch') {
-            const patchInput = this.getNodeParameter('patchInput', i) as string;
-            const binary = this.getNodeParameter('binary', i) as boolean;
-            let patchFile: string;
-            if (patchInput === 'text') {
-              const patchText = this.getNodeParameter('patchText', i) as string;
-              tempFile = join(tmpdir(), `patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-              await fs.writeFile(tempFile, patchText);
-              patchFile = tempFile;
-            } else {
-              patchFile = this.getNodeParameter('patchFile', i) as string;
-            }
-            command = `git -C "${repoPath}" apply${binary ? ' --binary' : ''} "${patchFile}"`;
-          } else {
-            throw new NodeOperationError(this.getNode(), `Unsupported operation ${operation}`, { itemIndex: i });
-          }
+        const builder = commandMap[operation];
+        if (!builder) {
+          throw new NodeOperationError(this.getNode(), `Unsupported operation ${operation}`, { itemIndex: i });
         }
+
+        const { command, tempFile } = await builder.call(this, i, repoPath);
 
         const { stdout, stderr } = await exec(command);
         if (tempFile) await fs.unlink(tempFile);
