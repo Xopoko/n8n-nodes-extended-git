@@ -80,6 +80,31 @@ export class GitExtended implements INodeType {
             action: 'Push branch',
           },
           {
+            name: 'Branches',
+            value: 'branches',
+            action: 'List branches',
+          },
+          {
+            name: 'Commits',
+            value: 'commits',
+            action: 'List commits',
+          },
+          {
+            name: 'Create Branch',
+            value: 'createBranch',
+            action: 'Create branch',
+          },
+          {
+            name: 'Delete Branch',
+            value: 'deleteBranch',
+            action: 'Delete branch',
+          },
+          {
+            name: 'Show Commit',
+            value: 'showCommit',
+            action: 'Show commit',
+          },
+          {
             name: 'Status',
             value: 'status',
             action: 'Show status',
@@ -243,7 +268,14 @@ export class GitExtended implements INodeType {
         description: 'Branch or commit to operate on',
         displayOptions: {
           show: {
-            operation: ['switch', 'checkout', 'merge'],
+            operation: [
+              'switch',
+              'checkout',
+              'merge',
+              'createBranch',
+              'deleteBranch',
+              'showCommit',
+            ],
           },
         },
       },
@@ -287,6 +319,19 @@ export class GitExtended implements INodeType {
             command = `git -C "${repoPath}" pull`;
             if (remote) command += ` ${remote}`;
             if (branch) command += ` ${branch}`;
+          } else if (operation === 'branches') {
+            command = `git -C "${repoPath}" branch`;
+          } else if (operation === 'commits') {
+            command = `git -C "${repoPath}" log --oneline`;
+          } else if (operation === 'createBranch') {
+            const target = this.getNodeParameter('target', i) as string;
+            command = `git -C "${repoPath}" branch ${target}`;
+          } else if (operation === 'deleteBranch') {
+            const target = this.getNodeParameter('target', i) as string;
+            command = `git -C "${repoPath}" branch -D ${target}`;
+          } else if (operation === 'showCommit') {
+            const target = this.getNodeParameter('target', i) as string;
+            command = `git -C "${repoPath}" show ${target}`;
           } else if (operation === 'status') {
             command = `git -C "${repoPath}" status`;
           } else if (operation === 'log') {
