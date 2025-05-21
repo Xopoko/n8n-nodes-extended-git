@@ -1,6 +1,9 @@
 import type { IExecuteFunctions, INodeExecutionData, INodeType, INodeTypeDescription } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { exec as execCallback } from 'child_process';
+import { promises as fs } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { promisify } from 'util';
 
 const exec = promisify(execCallback);
@@ -60,6 +63,11 @@ export class GitExtended implements INodeType {
             name: 'Merge',
             value: 'merge',
             action: 'Merge branch',
+          },
+          {
+            name: 'Apply Patch',
+            value: 'applyPatch',
+            action: 'Apply patch',
           },
           {
             name: 'Pull',
@@ -167,6 +175,66 @@ export class GitExtended implements INodeType {
         },
       },
       {
+        displayName: 'Patch Input',
+        name: 'patchInput',
+        type: 'options',
+        options: [
+          {
+            name: 'Text',
+            value: 'text',
+          },
+          {
+            name: 'File',
+            value: 'file',
+          },
+        ],
+        default: 'text',
+        displayOptions: {
+          show: {
+            operation: ['applyPatch'],
+          },
+        },
+      },
+      {
+        displayName: 'Patch Text',
+        name: 'patchText',
+        type: 'string',
+        typeOptions: {
+          rows: 5,
+        },
+        default: '',
+        displayOptions: {
+          show: {
+            operation: ['applyPatch'],
+            patchInput: ['text'],
+          },
+        },
+      },
+      {
+        displayName: 'Patch File Path',
+        name: 'patchFile',
+        type: 'string',
+        default: '',
+        displayOptions: {
+          show: {
+            operation: ['applyPatch'],
+            patchInput: ['file'],
+          },
+        },
+      },
+      {
+        displayName: 'Binary',
+        name: 'binary',
+        type: 'boolean',
+        default: false,
+        description: 'Apply patch in binary mode',
+        displayOptions: {
+          show: {
+            operation: ['applyPatch'],
+          },
+        },
+      },
+      {
         displayName: 'Target',
         name: 'target',
         type: 'string',
@@ -191,6 +259,7 @@ export class GitExtended implements INodeType {
         const operation = this.getNodeParameter('operation', i) as string;
         const repoPath = this.getNodeParameter('repoPath', i) as string;
         let command = '';
+        let tempFile: string | undefined;
 
         if (operation === 'clone') {
           const repoUrl = this.getNodeParameter('repoUrl', i) as string;
@@ -231,12 +300,26 @@ export class GitExtended implements INodeType {
           } else if (operation === 'merge') {
             const target = this.getNodeParameter('target', i) as string;
             command = `git -C "${repoPath}" merge ${target}`;
+          } else if (operation === 'applyPatch') {
+            const patchInput = this.getNodeParameter('patchInput', i) as string;
+            const binary = this.getNodeParameter('binary', i) as boolean;
+            let patchFile: string;
+            if (patchInput === 'text') {
+              const patchText = this.getNodeParameter('patchText', i) as string;
+              tempFile = join(tmpdir(), `patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+              await fs.writeFile(tempFile, patchText);
+              patchFile = tempFile;
+            } else {
+              patchFile = this.getNodeParameter('patchFile', i) as string;
+            }
+            command = `git -C "${repoPath}" apply${binary ? ' --binary' : ''} "${patchFile}"`;
           } else {
             throw new NodeOperationError(this.getNode(), `Unsupported operation ${operation}`, { itemIndex: i });
           }
         }
 
         const { stdout, stderr } = await exec(command);
+        if (tempFile) await fs.unlink(tempFile);
         returnData.push({ json: { stdout: stdout.trim(), stderr: stderr.trim() } });
       } catch (error) {
         if (this.continueOnFail()) {
