@@ -40,9 +40,11 @@ These are the basic steps for working with the starter. For detailed guidance on
 
 ## Git Extended node
 
-This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout` and `merge`.
+This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout`, `merge` and `applyPatch`.
 
 Every operation requires a **Repository Path** parameter that defines the directory from which the Git command is executed. For `clone`, the repository will be created inside this directory.
+
+The `applyPatch` operation uses `git apply` to apply a patch file. You can provide the patch text directly or specify a path to a patch file. Enable the *Binary* option when applying binary patches.
 
 ### Running Git commands
 
