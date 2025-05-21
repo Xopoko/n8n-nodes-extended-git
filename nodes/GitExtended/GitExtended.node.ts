@@ -378,8 +378,13 @@ export class GitExtended implements INodeType {
 
         const { command, tempFile } = await builder.call(this, i, repoPath);
 
-        const { stdout, stderr } = await exec(command);
-        if (tempFile) await fs.unlink(tempFile);
+        let stdout: string;
+        let stderr: string;
+        try {
+          ({ stdout, stderr } = await exec(command));
+        } finally {
+          if (tempFile) await fs.unlink(tempFile);
+        }
         returnData.push({ json: { stdout: stdout.trim(), stderr: stderr.trim() } });
       } catch (error) {
         if (this.continueOnFail()) {
