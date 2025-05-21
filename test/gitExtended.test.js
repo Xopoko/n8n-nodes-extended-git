@@ -71,3 +71,51 @@ test('clone operation clones repository', async () => {
   fs.rmSync(sourceDir, { recursive: true, force: true });
   fs.rmSync(cloneDir, { recursive: true, force: true });
 });
+
+test('branches operation lists branches', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-branches-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', {
+    cwd: repoDir,
+  });
+  require('child_process').execSync('git config user.name "Test"', {
+    cwd: repoDir,
+  });
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+  require('child_process').execSync('git branch feature', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'branches', repoPath: repoDir });
+  const result = await node.execute.call(context);
+  const output = result[0][0].json.stdout;
+  assert.ok(output.includes('feature'));
+
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('commits operation lists commits', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-commits-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', {
+    cwd: repoDir,
+  });
+  require('child_process').execSync('git config user.name "Test"', {
+    cwd: repoDir,
+  });
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'file.txt'), 'second');
+  require('child_process').execSync('git add file.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "second"', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'commits', repoPath: repoDir });
+  const result = await node.execute.call(context);
+  const output = result[0][0].json.stdout;
+  assert.ok(output.includes('second'));
+
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
