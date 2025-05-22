@@ -119,3 +119,73 @@ test('commits operation lists commits', async () => {
 
   fs.rmSync(repoDir, { recursive: true, force: true });
 });
+
+test('createBranch operation creates branch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-create-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'createBranch', repoPath: repoDir, branchName: 'feature' });
+  await node.execute.call(context);
+  const branches = require('child_process').execSync('git branch', { cwd: repoDir }).toString();
+  assert.ok(branches.includes('feature'));
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('renameBranch operation renames branch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-rename-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+  require('child_process').execSync('git branch old', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'renameBranch', repoPath: repoDir, currentName: 'old', newName: 'new' });
+  await node.execute.call(context);
+  const branches = require('child_process').execSync('git branch', { cwd: repoDir }).toString();
+  assert.ok(branches.includes('new') && !branches.includes('old'));
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('deleteBranch operation deletes branch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-delete-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+  require('child_process').execSync('git branch temp', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'deleteBranch', repoPath: repoDir, branchName: 'temp' });
+  await node.execute.call(context);
+  const branches = require('child_process').execSync('git branch', { cwd: repoDir }).toString();
+  assert.ok(!branches.includes('temp'));
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('switch operation can create branch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-switch-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+  require('child_process').execSync('git add README.md', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'switch', repoPath: repoDir, target: 'newbranch', create: true });
+  await node.execute.call(context);
+  const branch = require('child_process').execSync('git rev-parse --abbrev-ref HEAD', { cwd: repoDir }).toString().trim();
+  assert.strictEqual(branch, 'newbranch');
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
