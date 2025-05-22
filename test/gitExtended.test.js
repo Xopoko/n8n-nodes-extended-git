@@ -399,6 +399,7 @@ test('applyPatch operation applies patch', async () => {
   const context = new TestContext({
     operation: 'applyPatch',
     repoPath: repoDir,
+    // The 'patchInput' parameter specifies the format of the patch. It is required by the GitExtended node.
     patchInput: 'text',
     patchText,
   });
