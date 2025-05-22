@@ -42,7 +42,7 @@ type CommandBuilder = (
 const commandMap: Record<Operation, CommandBuilder> = {
 	async [Operation.Clone](index, repoPath) {
 		let repoUrl = this.getNodeParameter('repoUrl', index) as string;
-		const auth = this.getNodeParameter('authentication', 0) as string;
+		const auth = this.getNodeParameter('authentication', index) as string;
 		if (auth === 'gitExtendedApi') {
 			const creds = await this.getCredentials('gitExtendedApi');
 			try {
