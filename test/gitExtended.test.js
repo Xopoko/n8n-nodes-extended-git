@@ -346,3 +346,64 @@ test('tag operation creates tag', async () => {
   assert.ok(tags.includes('v1'));
   fs.rmSync(repoDir, { recursive: true, force: true });
 });
+
+test('checkout operation checks out branch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-checkout-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', {
+    cwd: repoDir,
+  });
+  require('child_process').execSync('git config user.name "Test"', {
+    cwd: repoDir,
+  });
+  fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+  require('child_process').execSync('git branch feature', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({
+    operation: 'checkout',
+    repoPath: repoDir,
+    target: 'feature',
+  });
+  await node.execute.call(context);
+  const branch = require('child_process').execSync(
+    'git rev-parse --abbrev-ref HEAD',
+    { cwd: repoDir },
+  ).toString().trim();
+  assert.strictEqual(branch, 'feature');
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('applyPatch operation applies patch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-apply-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', {
+    cwd: repoDir,
+  });
+  require('child_process').execSync('git config user.name "Test"', {
+    cwd: repoDir,
+  });
+  fs.writeFileSync(path.join(repoDir, 'file.txt'), '1\n');
+  require('child_process').execSync('git add file.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+
+  fs.writeFileSync(path.join(repoDir, 'file.txt'), '2\n');
+  const patchText = require('child_process').execSync('git diff file.txt', {
+    cwd: repoDir,
+  }).toString();
+  require('child_process').execSync('git checkout -- file.txt', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({
+    operation: 'applyPatch',
+    repoPath: repoDir,
+    patchInput: 'text',
+    patchText,
+  });
+  await node.execute.call(context);
+  const content = fs.readFileSync(path.join(repoDir, 'file.txt'), 'utf8').trim();
+  assert.strictEqual(content, '2');
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
