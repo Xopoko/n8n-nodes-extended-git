@@ -176,21 +176,41 @@ export class GitExtended implements INodeType {
 				name: 'operation',
 				type: 'options',
 				noDataExpression: true,
-				options: [
-					{
-						name: 'Add',
-						value: 'add',
-						action: 'Add files',
-					},
-					{
-						name: 'Apply Patch',
-						value: 'applyPatch',
-						action: 'Apply patch',
-					},
+                                options: [
+                                        {
+                                                name: 'Add',
+                                                value: 'add',
+                                                action: 'Add files',
+                                        },
+                                        {
+                                                name: 'Apply Patch',
+                                                value: 'applyPatch',
+                                                action: 'Apply patch',
+                                        },
                                         {
                                                 name: 'Branches',
                                                 value: 'branches',
                                                 action: 'List branches',
+                                        },
+                                        {
+                                                name: 'Checkout',
+                                                value: 'checkout',
+                                                action: 'Checkout',
+                                        },
+                                        {
+                                                name: 'Clone',
+                                                value: 'clone',
+                                                action: 'Clone repository',
+                                        },
+                                        {
+                                                name: 'Commit',
+                                                value: 'commit',
+                                                action: 'Create commit',
+                                        },
+                                        {
+                                                name: 'Commits',
+                                                value: 'commits',
+                                                action: 'List commits',
                                         },
                                         {
                                                 name: 'Create Branch',
@@ -203,66 +223,46 @@ export class GitExtended implements INodeType {
                                                 action: 'Delete branch',
                                         },
                                         {
+                                                name: 'Init',
+                                                value: 'init',
+                                                action: 'Initialize repository',
+                                        },
+                                        {
+                                                name: 'Log',
+                                                value: 'log',
+                                                action: 'Show log',
+                                        },
+                                        {
+                                                name: 'Merge',
+                                                value: 'merge',
+                                                action: 'Merge branch',
+                                        },
+                                        {
+                                                name: 'Pull',
+                                                value: 'pull',
+                                                action: 'Pull branch',
+                                        },
+                                        {
+                                                name: 'Push',
+                                                value: 'push',
+                                                action: 'Push branch',
+                                        },
+                                        {
                                                 name: 'Rename Branch',
                                                 value: 'renameBranch',
                                                 action: 'Rename branch',
                                         },
                                         {
-                                                name: 'Checkout',
-                                                value: 'checkout',
-                                                action: 'Checkout',
+                                                name: 'Status',
+                                                value: 'status',
+                                                action: 'Show status',
                                         },
-					{
-						name: 'Clone',
-						value: 'clone',
-						action: 'Clone repository',
-					},
-					{
-						name: 'Commit',
-						value: 'commit',
-						action: 'Create commit',
-					},
-					{
-						name: 'Commits',
-						value: 'commits',
-						action: 'List commits',
-					},
-					{
-						name: 'Init',
-						value: 'init',
-						action: 'Initialize repository',
-					},
-					{
-						name: 'Log',
-						value: 'log',
-						action: 'Show log',
-					},
-					{
-						name: 'Merge',
-						value: 'merge',
-						action: 'Merge branch',
-					},
-					{
-						name: 'Pull',
-						value: 'pull',
-						action: 'Pull branch',
-					},
-					{
-						name: 'Push',
-						value: 'push',
-						action: 'Push branch',
-					},
-					{
-						name: 'Status',
-						value: 'status',
-						action: 'Show status',
-					},
-					{
-						name: 'Switch Branch',
-						value: 'switch',
-						action: 'Switch branch',
-					},
-				],
+                                        {
+                                                name: 'Switch Branch',
+                                                value: 'switch',
+                                                action: 'Switch branch',
+                                        },
+                                ],
 				default: 'status',
 			},
 			{
@@ -486,7 +486,7 @@ export class GitExtended implements INodeType {
                                 name: 'create',
                                 type: 'boolean',
                                 default: false,
-                                description: 'Create the branch if it does not exist',
+                                description: 'Whether to create the branch if it does not exist',
                                 displayOptions: {
                                         show: {
                                                 operation: ['switch'],
