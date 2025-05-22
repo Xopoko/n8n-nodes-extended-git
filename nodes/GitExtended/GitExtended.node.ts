@@ -15,30 +15,30 @@ import { promisify } from 'util';
 const exec = promisify(execCallback);
 
 enum Operation {
-        Add = 'add',
-        ApplyPatch = 'applyPatch',
-        CreateBranch = 'createBranch',
-        DeleteBranch = 'deleteBranch',
-        Branches = 'branches',
-        Checkout = 'checkout',
-        Clone = 'clone',
-        Commit = 'commit',
-        Commits = 'commits',
-        RenameBranch = 'renameBranch',
-        Init = 'init',
-        Log = 'log',
-        Merge = 'merge',
-        CherryPick = 'cherryPick',
-        Fetch = 'fetch',
-        Rebase = 'rebase',
-        Reset = 'reset',
-        Revert = 'revert',
-        Stash = 'stash',
-        Tag = 'tag',
-        Pull = 'pull',
-        Push = 'push',
-        Status = 'status',
-        Switch = 'switch',
+	Add = 'add',
+	ApplyPatch = 'applyPatch',
+	CreateBranch = 'createBranch',
+	DeleteBranch = 'deleteBranch',
+	Branches = 'branches',
+	Checkout = 'checkout',
+	Clone = 'clone',
+	Commit = 'commit',
+	Commits = 'commits',
+	RenameBranch = 'renameBranch',
+	Init = 'init',
+	Log = 'log',
+	Merge = 'merge',
+	CherryPick = 'cherryPick',
+	Fetch = 'fetch',
+	Rebase = 'rebase',
+	Reset = 'reset',
+	Revert = 'revert',
+	Stash = 'stash',
+	Tag = 'tag',
+	Pull = 'pull',
+	Push = 'push',
+	Status = 'status',
+	Switch = 'switch',
 }
 
 type CommandResult = { command: string; tempFile?: string };
@@ -61,7 +61,10 @@ const commandMap: Record<Operation, CommandBuilder> = {
 				url.password = creds.password as string;
 				repoUrl = url.toString();
 			} catch (error) {
-                                throw new NodeOperationError(this.getNode(), `Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`);
+				throw new NodeOperationError(
+					this.getNode(),
+					`Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`,
+				);
 			}
 		}
 		const targetPath = this.getNodeParameter('targetPath', index) as string;
@@ -96,82 +99,89 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		if (branch) cmd += ` ${branch}`;
 		return { command: cmd };
 	},
-        async [Operation.Branches](_index, repoPath) {
-                return { command: `git -C "${repoPath}" branch` };
-        },
-        async [Operation.CreateBranch](index, repoPath) {
-                const branchName = this.getNodeParameter('branchName', index) as string;
-                return { command: `git -C "${repoPath}" branch ${branchName}` };
-        },
-        async [Operation.DeleteBranch](index, repoPath) {
-                const branchName = this.getNodeParameter('branchName', index) as string;
-                return { command: `git -C "${repoPath}" branch -d ${branchName}` };
-        },
-        async [Operation.RenameBranch](index, repoPath) {
-                const currentName = this.getNodeParameter('currentName', index) as string;
-                const newName = this.getNodeParameter('newName', index) as string;
-                return { command: `git -C "${repoPath}" branch -m ${currentName} ${newName}` };
-        },
-        async [Operation.Commits](_index, repoPath) {
-                return { command: `git -C "${repoPath}" log --oneline` };
-        },
+	async [Operation.Branches](_index, repoPath) {
+		return { command: `git -C "${repoPath}" branch` };
+	},
+	async [Operation.CreateBranch](index, repoPath) {
+		const branchName = this.getNodeParameter('branchName', index) as string;
+		return { command: `git -C "${repoPath}" branch ${branchName}` };
+	},
+	async [Operation.DeleteBranch](index, repoPath) {
+		const branchName = this.getNodeParameter('branchName', index) as string;
+		return { command: `git -C "${repoPath}" branch -d ${branchName}` };
+	},
+	async [Operation.RenameBranch](index, repoPath) {
+		const currentName = this.getNodeParameter('currentName', index) as string;
+		const newName = this.getNodeParameter('newName', index) as string;
+		return { command: `git -C "${repoPath}" branch -m ${currentName} ${newName}` };
+	},
+	async [Operation.Commits](_index, repoPath) {
+		return { command: `git -C "${repoPath}" log --oneline` };
+	},
 	async [Operation.Status](_index, repoPath) {
 		return { command: `git -C "${repoPath}" status` };
 	},
 	async [Operation.Log](_index, repoPath) {
 		return { command: `git -C "${repoPath}" log` };
 	},
-        async [Operation.Switch](index, repoPath) {
-                const target = this.getNodeParameter('target', index) as string;
-                const create = this.getNodeParameter('create', index, false) as boolean;
-                return { command: `git -C "${repoPath}" switch${create ? ' -c' : ''} ${target}` };
-        },
+	async [Operation.Switch](index, repoPath) {
+		const target = this.getNodeParameter('target', index) as string;
+		const create = this.getNodeParameter('create', index, false) as boolean;
+		return { command: `git -C "${repoPath}" switch${create ? ' -c' : ''} ${target}` };
+	},
 	async [Operation.Checkout](index, repoPath) {
 		const target = this.getNodeParameter('target', index) as string;
 		return { command: `git -C "${repoPath}" checkout ${target}` };
 	},
-        async [Operation.Merge](index, repoPath) {
-                const target = this.getNodeParameter('target', index) as string;
-                return { command: `git -C "${repoPath}" merge ${target}` };
-        },
-        async [Operation.Fetch](index, repoPath) {
-                const remote = this.getNodeParameter('remote', index) as string;
-                const branch = this.getNodeParameter('branch', index) as string;
-                let cmd = `git -C "${repoPath}" fetch`;
-                if (remote) cmd += ` ${remote}`;
-                if (branch) cmd += ` ${branch}`;
-                return { command: cmd };
-        },
-        async [Operation.Rebase](index, repoPath) {
-                const upstream = this.getNodeParameter('upstream', index) as string;
-                return { command: `git -C "${repoPath}" rebase ${upstream}` };
-        },
-        async [Operation.CherryPick](index, repoPath) {
-                const commit = this.getNodeParameter('commit', index) as string;
-                return { command: `git -C "${repoPath}" cherry-pick ${commit}` };
-        },
-        async [Operation.Revert](index, repoPath) {
-                const commit = this.getNodeParameter('commit', index) as string;
-                return { command: `git -C "${repoPath}" revert ${commit} --no-edit` };
-        },
-        async [Operation.Reset](index, repoPath) {
-                const commit = this.getNodeParameter('commit', index) as string;
-                return { command: `git -C "${repoPath}" reset --hard ${commit}` };
-        },
-        async [Operation.Stash](_index, repoPath) {
-                return { command: `git -C "${repoPath}" stash` };
-        },
-        async [Operation.Tag](index, repoPath) {
-                const tagName = this.getNodeParameter('tagName', index) as string;
-                const tagCommit = this.getNodeParameter('tagCommit', index) as string;
-                let cmd = `git -C "${repoPath}" tag ${tagName}`;
-                if (tagCommit) cmd += ` ${tagCommit}`;
-                return { command: cmd };
-        },
-        async [Operation.ApplyPatch](index, repoPath) {
-                const patchInput = this.getNodeParameter('patchInput', index) as string;
-                const binary = this.getNodeParameter('binary', index) as boolean;
-                let patchFile: string;
+	async [Operation.Merge](index, repoPath) {
+		const target = this.getNodeParameter('target', index) as string;
+		return { command: `git -C "${repoPath}" merge ${target}` };
+	},
+	async [Operation.Fetch](index, repoPath) {
+		const remote = this.getNodeParameter('remote', index) as string;
+		const branch = this.getNodeParameter('branch', index) as string;
+		let cmd = `git -C "${repoPath}" fetch`;
+		if (remote) cmd += ` ${remote}`;
+		if (branch) cmd += ` ${branch}`;
+		return { command: cmd };
+	},
+	async [Operation.Rebase](index, repoPath) {
+		const upstream = this.getNodeParameter('upstream', index) as string;
+		return { command: `git -C "${repoPath}" rebase ${upstream}` };
+	},
+	async [Operation.CherryPick](index, repoPath) {
+		const commit = this.getNodeParameter('commit', index) as string;
+		if (!commit) {
+			throw new NodeOperationError(this.getNode(), 'Commit ID is required');
+		}
+		return { command: `git -C "${repoPath}" cherry-pick ${commit}` };
+	},
+	async [Operation.Revert](index, repoPath) {
+		const commit = this.getNodeParameter('commit', index) as string;
+		if (!commit) {
+			throw new NodeOperationError(this.getNode(), 'Commit ID is required');
+		}
+		return { command: `git -C "${repoPath}" revert ${commit} --no-edit` };
+	},
+	async [Operation.Reset](index, repoPath) {
+		const commit = this.getNodeParameter('commit', index, '') as string;
+		const commitArg = commit ? ` ${commit}` : '';
+		return { command: `git -C "${repoPath}" reset --hard${commitArg}` };
+	},
+	async [Operation.Stash](_index, repoPath) {
+		return { command: `git -C "${repoPath}" stash` };
+	},
+	async [Operation.Tag](index, repoPath) {
+		const tagName = this.getNodeParameter('tagName', index) as string;
+		const tagCommit = this.getNodeParameter('tagCommit', index) as string;
+		let cmd = `git -C "${repoPath}" tag ${tagName}`;
+		if (tagCommit) cmd += ` ${tagCommit}`;
+		return { command: cmd };
+	},
+	async [Operation.ApplyPatch](index, repoPath) {
+		const patchInput = this.getNodeParameter('patchInput', index) as string;
+		const binary = this.getNodeParameter('binary', index) as boolean;
+		let patchFile: string;
 		let tempFile: string | undefined;
 		if (patchInput === 'text') {
 			const patchText = this.getNodeParameter('patchText', index) as string;
@@ -217,130 +227,130 @@ export class GitExtended implements INodeType {
 				name: 'operation',
 				type: 'options',
 				noDataExpression: true,
-                                options: [
-                                        {
-                                                name: 'Add',
-                                                value: 'add',
-                                                action: 'Add files',
-                                        },
-                                        {
-                                                name: 'Apply Patch',
-                                                value: 'applyPatch',
-                                                action: 'Apply patch',
-                                        },
-                                        {
-                                                name: 'Branches',
-                                                value: 'branches',
-                                                action: 'List branches',
-                                        },
-                                        {
-                                                name: 'Checkout',
-                                                value: 'checkout',
-                                                action: 'Checkout',
-                                        },
-                                        {
-                                                name: 'Cherry Pick',
-                                                value: 'cherryPick',
-                                                action: 'Cherry pick commit',
-                                        },
-                                        {
-                                                name: 'Clone',
-                                                value: 'clone',
-                                                action: 'Clone repository',
-                                        },
-                                        {
-                                                name: 'Commit',
-                                                value: 'commit',
-                                                action: 'Create commit',
-                                        },
-                                        {
-                                                name: 'Commits',
-                                                value: 'commits',
-                                                action: 'List commits',
-                                        },
-                                        {
-                                                name: 'Create Branch',
-                                                value: 'createBranch',
-                                                action: 'Create branch',
-                                        },
-                                        {
-                                                name: 'Delete Branch',
-                                                value: 'deleteBranch',
-                                                action: 'Delete branch',
-                                        },
-                                        {
-                                                name: 'Fetch',
-                                                value: 'fetch',
-                                                action: 'Fetch from remote',
-                                        },
-                                        {
-                                                name: 'Init',
-                                                value: 'init',
-                                                action: 'Initialize repository',
-                                        },
-                                        {
-                                                name: 'Log',
-                                                value: 'log',
-                                                action: 'Show log',
-                                        },
-                                        {
-                                                name: 'Merge',
-                                                value: 'merge',
-                                                action: 'Merge branch',
-                                        },
-                                        {
-                                                name: 'Pull',
-                                                value: 'pull',
-                                                action: 'Pull branch',
-                                        },
-                                        {
-                                                name: 'Push',
-                                                value: 'push',
-                                                action: 'Push branch',
-                                        },
-                                        {
-                                                name: 'Rebase',
-                                                value: 'rebase',
-                                                action: 'Rebase branch',
-                                        },
-                                        {
-                                                name: 'Rename Branch',
-                                                value: 'renameBranch',
-                                                action: 'Rename branch',
-                                        },
-                                        {
-                                                name: 'Reset',
-                                                value: 'reset',
-                                                action: 'Reset to commit',
-                                        },
-                                        {
-                                                name: 'Revert',
-                                                value: 'revert',
-                                                action: 'Revert commit',
-                                        },
-                                        {
-                                                name: 'Stash',
-                                                value: 'stash',
-                                                action: 'Stash changes',
-                                        },
-                                        {
-                                                name: 'Status',
-                                                value: 'status',
-                                                action: 'Show status',
-                                        },
-                                        {
-                                                name: 'Switch Branch',
-                                                value: 'switch',
-                                                action: 'Switch branch',
-                                        },
-                                        {
-                                                name: 'Tag',
-                                                value: 'tag',
-                                                action: 'Create tag',
-                                        },
-                                ],
-                                default: 'status',
-                        },
+				options: [
+					{
+						name: 'Add',
+						value: 'add',
+						action: 'Add files',
+					},
+					{
+						name: 'Apply Patch',
+						value: 'applyPatch',
+						action: 'Apply patch',
+					},
+					{
+						name: 'Branches',
+						value: 'branches',
+						action: 'List branches',
+					},
+					{
+						name: 'Checkout',
+						value: 'checkout',
+						action: 'Checkout',
+					},
+					{
+						name: 'Cherry Pick',
+						value: 'cherryPick',
+						action: 'Cherry pick commit',
+					},
+					{
+						name: 'Clone',
+						value: 'clone',
+						action: 'Clone repository',
+					},
+					{
+						name: 'Commit',
+						value: 'commit',
+						action: 'Create commit',
+					},
+					{
+						name: 'Commits',
+						value: 'commits',
+						action: 'List commits',
+					},
+					{
+						name: 'Create Branch',
+						value: 'createBranch',
+						action: 'Create branch',
+					},
+					{
+						name: 'Delete Branch',
+						value: 'deleteBranch',
+						action: 'Delete branch',
+					},
+					{
+						name: 'Fetch',
+						value: 'fetch',
+						action: 'Fetch from remote',
+					},
+					{
+						name: 'Init',
+						value: 'init',
+						action: 'Initialize repository',
+					},
+					{
+						name: 'Log',
+						value: 'log',
+						action: 'Show log',
+					},
+					{
+						name: 'Merge',
+						value: 'merge',
+						action: 'Merge branch',
+					},
+					{
+						name: 'Pull',
+						value: 'pull',
+						action: 'Pull branch',
+					},
+					{
+						name: 'Push',
+						value: 'push',
+						action: 'Push branch',
+					},
+					{
+						name: 'Rebase',
+						value: 'rebase',
+						action: 'Rebase branch',
+					},
+					{
+						name: 'Rename Branch',
+						value: 'renameBranch',
+						action: 'Rename branch',
+					},
+					{
+						name: 'Reset',
+						value: 'reset',
+						action: 'Reset to commit',
+					},
+					{
+						name: 'Revert',
+						value: 'revert',
+						action: 'Revert commit',
+					},
+					{
+						name: 'Stash',
+						value: 'stash',
+						action: 'Stash changes',
+					},
+					{
+						name: 'Status',
+						value: 'status',
+						action: 'Show status',
+					},
+					{
+						name: 'Switch Branch',
+						value: 'switch',
+						action: 'Switch branch',
+					},
+					{
+						name: 'Tag',
+						value: 'tag',
+						action: 'Create tag',
+					},
+				],
+				default: 'status',
+			},
 			{
 				displayName: 'Authentication',
 				name: 'authentication',
@@ -433,110 +443,108 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-                        {
-                                displayName: 'Branch',
-                                name: 'branch',
-                                type: 'string',
-                                default: '',
-                                description: 'Branch name',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['push', 'pull', 'fetch'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Branch Name',
-                                name: 'branchName',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'Name of the branch',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['createBranch', 'deleteBranch'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Current Name',
-                                name: 'currentName',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'Current branch name',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['renameBranch'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'New Name',
-                                name: 'newName',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'New branch name',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['renameBranch'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Upstream Branch',
-                                name: 'upstream',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'Branch to rebase onto',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['rebase'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Commit ID',
-                                name: 'commit',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'Commit hash',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['cherryPick', 'revert', 'reset'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Tag Name',
-                                name: 'tagName',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'Name of the tag',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['tag'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Commit ID',
-                                name: 'tagCommit',
-                                type: 'string',
-                                default: '',
-                                description: 'Commit to tag, defaults to HEAD',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['tag'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Patch Input',
+			{
+				displayName: 'Branch',
+				name: 'branch',
+				type: 'string',
+				default: '',
+				description: 'Branch name',
+				displayOptions: {
+					show: {
+						operation: ['push', 'pull', 'fetch'],
+					},
+				},
+			},
+			{
+				displayName: 'Branch Name',
+				name: 'branchName',
+				type: 'string',
+				default: '',
+				description: 'Name of the branch',
+				displayOptions: {
+					show: {
+						operation: ['createBranch', 'deleteBranch'],
+					},
+				},
+			},
+			{
+				displayName: 'Current Name',
+				name: 'currentName',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'Current branch name',
+				displayOptions: {
+					show: {
+						operation: ['renameBranch'],
+					},
+				},
+			},
+			{
+				displayName: 'New Name',
+				name: 'newName',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'New branch name',
+				displayOptions: {
+					show: {
+						operation: ['renameBranch'],
+					},
+				},
+			},
+			{
+				displayName: 'Upstream Branch',
+				name: 'upstream',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'Branch to rebase onto',
+				displayOptions: {
+					show: {
+						operation: ['rebase'],
+					},
+				},
+			},
+			{
+				displayName: 'Commit ID',
+				name: 'commit',
+				type: 'string',
+				default: '',
+				description: 'Commit hash',
+				displayOptions: {
+					show: {
+						operation: ['cherryPick', 'revert', 'reset'],
+					},
+				},
+			},
+			{
+				displayName: 'Tag Name',
+				name: 'tagName',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'Name of the tag',
+				displayOptions: {
+					show: {
+						operation: ['tag'],
+					},
+				},
+			},
+			{
+				displayName: 'Commit ID',
+				name: 'tagCommit',
+				type: 'string',
+				default: '',
+				description: 'Commit to tag, defaults to HEAD',
+				displayOptions: {
+					show: {
+						operation: ['tag'],
+					},
+				},
+			},
+			{
+				displayName: 'Patch Input',
 				name: 'patchInput',
 				type: 'options',
 				options: [
@@ -595,33 +603,33 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-                        {
-                                displayName: 'Target',
-                                name: 'target',
-                                type: 'string',
-                                default: '',
-                                required: true,
-                                description: 'Branch or commit to operate on',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['switch', 'checkout', 'merge'],
-                                        },
-                                },
-                        },
-                        {
-                                displayName: 'Create',
-                                name: 'create',
-                                type: 'boolean',
-                                default: false,
-                                description: 'Whether to create the branch if it does not exist',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['switch'],
-                                        },
-                                },
-                        },
-                ],
-        };
+			{
+				displayName: 'Target',
+				name: 'target',
+				type: 'string',
+				default: '',
+				required: true,
+				description: 'Branch or commit to operate on',
+				displayOptions: {
+					show: {
+						operation: ['switch', 'checkout', 'merge'],
+					},
+				},
+			},
+			{
+				displayName: 'Create',
+				name: 'create',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to create the branch if it does not exist',
+				displayOptions: {
+					show: {
+						operation: ['switch'],
+					},
+				},
+			},
+		],
+	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
