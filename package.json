@@ -33,7 +33,9 @@
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "credentials": [],
+    "credentials": [
+      "dist/credentials/GitExtendedApi.credentials.js"
+    ],
     "nodes": [
       "dist/nodes/GitExtended/GitExtended.node.js"
     ]
