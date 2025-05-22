@@ -50,7 +50,9 @@ const commandMap: Record<Operation, CommandBuilder> = {
 				url.username = creds.username as string;
 				url.password = creds.password as string;
 				repoUrl = url.toString();
-			} catch {}
+			} catch (error) {
+				throw new NodeOperationError(this, `Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`);
+			}
 		}
 		const targetPath = this.getNodeParameter('targetPath', index) as string;
 		return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
