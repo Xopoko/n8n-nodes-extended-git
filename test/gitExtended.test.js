@@ -189,3 +189,160 @@ test('switch operation can create branch', async () => {
   assert.strictEqual(branch, 'newbranch');
   fs.rmSync(repoDir, { recursive: true, force: true });
 });
+
+test('stash operation stashes changes', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-stash-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'file.txt'), 'a');
+  require('child_process').execSync('git add file.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'file.txt'), 'b');
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'stash', repoPath: repoDir });
+  await node.execute.call(context);
+  const status = require('child_process').execSync('git status --porcelain', { cwd: repoDir }).toString();
+  assert.strictEqual(status.trim(), '');
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('fetch operation fetches remote', async () => {
+  const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-remote-'));
+  require('child_process').execSync('git init --bare', { cwd: remoteDir });
+
+  const pushDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-push-'));
+  require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: pushDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: pushDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: pushDir });
+  fs.writeFileSync(path.join(pushDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: pushDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: pushDir });
+  require('child_process').execSync('git push origin master', { cwd: pushDir });
+
+  const localDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-local-'));
+  require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: localDir });
+
+  fs.writeFileSync(path.join(pushDir, 'b.txt'), '2');
+  require('child_process').execSync('git add b.txt', { cwd: pushDir });
+  require('child_process').execSync('git commit -m "second"', { cwd: pushDir });
+  require('child_process').execSync('git push origin master', { cwd: pushDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'fetch', repoPath: localDir, remote: 'origin' });
+  await node.execute.call(context);
+  const result = require('child_process').execSync('git rev-list origin/master --count', { cwd: localDir }).toString().trim();
+  assert.strictEqual(result, '2');
+  fs.rmSync(remoteDir, { recursive: true, force: true });
+  fs.rmSync(pushDir, { recursive: true, force: true });
+  fs.rmSync(localDir, { recursive: true, force: true });
+});
+
+test('rebase operation rebases branch', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-rebase-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "base"', { cwd: repoDir });
+  require('child_process').execSync('git checkout -b feature', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'b.txt'), '2');
+  require('child_process').execSync('git add b.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "feature"', { cwd: repoDir });
+  require('child_process').execSync('git checkout master', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'c.txt'), '3');
+  require('child_process').execSync('git add c.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "master"', { cwd: repoDir });
+
+  require('child_process').execSync('git checkout feature', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'rebase', repoPath: repoDir, upstream: 'master' });
+  await node.execute.call(context);
+  const log = require('child_process').execSync('git log --oneline', { cwd: repoDir }).toString();
+  assert.ok(log.split('\n')[0].includes('feature'));
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('cherryPick operation applies commit', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-cherry-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'b.txt'), '2');
+  require('child_process').execSync('git add b.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "second"', { cwd: repoDir });
+  const commit = require('child_process').execSync('git rev-parse HEAD', { cwd: repoDir }).toString().trim();
+  require('child_process').execSync('git reset --hard HEAD~1', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'cherryPick', repoPath: repoDir, commit });
+  await node.execute.call(context);
+  const log = require('child_process').execSync('git log -1 --pretty=%B', { cwd: repoDir }).toString().trim();
+  assert.strictEqual(log, 'second');
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('revert operation reverts commit', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-revert-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'b.txt'), '2');
+  require('child_process').execSync('git add b.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "second"', { cwd: repoDir });
+  const commit = require('child_process').execSync('git rev-parse HEAD', { cwd: repoDir }).toString().trim();
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'revert', repoPath: repoDir, commit });
+  await node.execute.call(context);
+  const log = require('child_process').execSync('git log -1 --pretty=%B', { cwd: repoDir }).toString();
+  assert.ok(log.includes('Revert'));
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('reset operation resets to commit', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-reset-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'b.txt'), '2');
+  require('child_process').execSync('git add b.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "second"', { cwd: repoDir });
+  const first = require('child_process').execSync('git rev-list --max-parents=0 HEAD', { cwd: repoDir }).toString().trim();
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'reset', repoPath: repoDir, commit: first });
+  await node.execute.call(context);
+  const head = require('child_process').execSync('git rev-parse HEAD', { cwd: repoDir }).toString().trim();
+  assert.strictEqual(head, first);
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('tag operation creates tag', async () => {
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-tag-'));
+  require('child_process').execSync('git init', { cwd: repoDir });
+  require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+  require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+  fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+  require('child_process').execSync('git add a.txt', { cwd: repoDir });
+  require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+
+  const node = new GitExtended();
+  const context = new TestContext({ operation: 'tag', repoPath: repoDir, tagName: 'v1' });
+  await node.execute.call(context);
+  const tags = require('child_process').execSync('git tag', { cwd: repoDir }).toString();
+  assert.ok(tags.includes('v1'));
+  fs.rmSync(repoDir, { recursive: true, force: true });
+});

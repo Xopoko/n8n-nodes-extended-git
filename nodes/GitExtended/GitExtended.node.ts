@@ -28,10 +28,17 @@ enum Operation {
         Init = 'init',
         Log = 'log',
         Merge = 'merge',
+        CherryPick = 'cherryPick',
+        Fetch = 'fetch',
+        Rebase = 'rebase',
+        Reset = 'reset',
+        Revert = 'revert',
+        Stash = 'stash',
+        Tag = 'tag',
         Pull = 'pull',
         Push = 'push',
-	Status = 'status',
-	Switch = 'switch',
+        Status = 'status',
+        Switch = 'switch',
 }
 
 type CommandResult = { command: string; tempFile?: string };
@@ -123,14 +130,48 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		const target = this.getNodeParameter('target', index) as string;
 		return { command: `git -C "${repoPath}" checkout ${target}` };
 	},
-	async [Operation.Merge](index, repoPath) {
-		const target = this.getNodeParameter('target', index) as string;
-		return { command: `git -C "${repoPath}" merge ${target}` };
-	},
-	async [Operation.ApplyPatch](index, repoPath) {
-		const patchInput = this.getNodeParameter('patchInput', index) as string;
-		const binary = this.getNodeParameter('binary', index) as boolean;
-		let patchFile: string;
+        async [Operation.Merge](index, repoPath) {
+                const target = this.getNodeParameter('target', index) as string;
+                return { command: `git -C "${repoPath}" merge ${target}` };
+        },
+        async [Operation.Fetch](index, repoPath) {
+                const remote = this.getNodeParameter('remote', index) as string;
+                const branch = this.getNodeParameter('branch', index) as string;
+                let cmd = `git -C "${repoPath}" fetch`;
+                if (remote) cmd += ` ${remote}`;
+                if (branch) cmd += ` ${branch}`;
+                return { command: cmd };
+        },
+        async [Operation.Rebase](index, repoPath) {
+                const upstream = this.getNodeParameter('upstream', index) as string;
+                return { command: `git -C "${repoPath}" rebase ${upstream}` };
+        },
+        async [Operation.CherryPick](index, repoPath) {
+                const commit = this.getNodeParameter('commit', index) as string;
+                return { command: `git -C "${repoPath}" cherry-pick ${commit}` };
+        },
+        async [Operation.Revert](index, repoPath) {
+                const commit = this.getNodeParameter('commit', index) as string;
+                return { command: `git -C "${repoPath}" revert ${commit} --no-edit` };
+        },
+        async [Operation.Reset](index, repoPath) {
+                const commit = this.getNodeParameter('commit', index) as string;
+                return { command: `git -C "${repoPath}" reset --hard ${commit}` };
+        },
+        async [Operation.Stash](_index, repoPath) {
+                return { command: `git -C "${repoPath}" stash` };
+        },
+        async [Operation.Tag](index, repoPath) {
+                const tagName = this.getNodeParameter('tagName', index) as string;
+                const tagCommit = this.getNodeParameter('tagCommit', index) as string;
+                let cmd = `git -C "${repoPath}" tag ${tagName}`;
+                if (tagCommit) cmd += ` ${tagCommit}`;
+                return { command: cmd };
+        },
+        async [Operation.ApplyPatch](index, repoPath) {
+                const patchInput = this.getNodeParameter('patchInput', index) as string;
+                const binary = this.getNodeParameter('binary', index) as boolean;
+                let patchFile: string;
 		let tempFile: string | undefined;
 		if (patchInput === 'text') {
 			const patchText = this.getNodeParameter('patchText', index) as string;
@@ -198,6 +239,11 @@ export class GitExtended implements INodeType {
                                                 action: 'Checkout',
                                         },
                                         {
+                                                name: 'Cherry Pick',
+                                                value: 'cherryPick',
+                                                action: 'Cherry pick commit',
+                                        },
+                                        {
                                                 name: 'Clone',
                                                 value: 'clone',
                                                 action: 'Clone repository',
@@ -221,6 +267,11 @@ export class GitExtended implements INodeType {
                                                 name: 'Delete Branch',
                                                 value: 'deleteBranch',
                                                 action: 'Delete branch',
+                                        },
+                                        {
+                                                name: 'Fetch',
+                                                value: 'fetch',
+                                                action: 'Fetch from remote',
                                         },
                                         {
                                                 name: 'Init',
@@ -248,9 +299,29 @@ export class GitExtended implements INodeType {
                                                 action: 'Push branch',
                                         },
                                         {
+                                                name: 'Rebase',
+                                                value: 'rebase',
+                                                action: 'Rebase branch',
+                                        },
+                                        {
                                                 name: 'Rename Branch',
                                                 value: 'renameBranch',
                                                 action: 'Rename branch',
+                                        },
+                                        {
+                                                name: 'Reset',
+                                                value: 'reset',
+                                                action: 'Reset to commit',
+                                        },
+                                        {
+                                                name: 'Revert',
+                                                value: 'revert',
+                                                action: 'Revert commit',
+                                        },
+                                        {
+                                                name: 'Stash',
+                                                value: 'stash',
+                                                action: 'Stash changes',
                                         },
                                         {
                                                 name: 'Status',
@@ -262,9 +333,14 @@ export class GitExtended implements INodeType {
                                                 value: 'switch',
                                                 action: 'Switch branch',
                                         },
+                                        {
+                                                name: 'Tag',
+                                                value: 'tag',
+                                                action: 'Create tag',
+                                        },
                                 ],
-				default: 'status',
-			},
+                                default: 'status',
+                        },
 			{
 				displayName: 'Authentication',
 				name: 'authentication',
@@ -353,7 +429,7 @@ export class GitExtended implements INodeType {
 				description: 'Remote name',
 				displayOptions: {
 					show: {
-						operation: ['push', 'pull'],
+						operation: ['push', 'pull', 'fetch'],
 					},
 				},
 			},
@@ -365,7 +441,7 @@ export class GitExtended implements INodeType {
                                 description: 'Branch name',
                                 displayOptions: {
                                         show: {
-                                                operation: ['push', 'pull'],
+                                                operation: ['push', 'pull', 'fetch'],
                                         },
                                 },
                         },
@@ -405,6 +481,57 @@ export class GitExtended implements INodeType {
                                 displayOptions: {
                                         show: {
                                                 operation: ['renameBranch'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Upstream Branch',
+                                name: 'upstream',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'Branch to rebase onto',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['rebase'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Commit ID',
+                                name: 'commit',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'Commit hash',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['cherryPick', 'revert', 'reset'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Tag Name',
+                                name: 'tagName',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'Name of the tag',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['tag'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Commit ID',
+                                name: 'tagCommit',
+                                type: 'string',
+                                default: '',
+                                description: 'Commit to tag, defaults to HEAD',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['tag'],
                                         },
                                 },
                         },
