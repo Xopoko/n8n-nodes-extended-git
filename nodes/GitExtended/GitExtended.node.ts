@@ -15,18 +15,21 @@ import { promisify } from 'util';
 const exec = promisify(execCallback);
 
 enum Operation {
-	Add = 'add',
-	ApplyPatch = 'applyPatch',
-	Branches = 'branches',
-	Checkout = 'checkout',
-	Clone = 'clone',
-	Commit = 'commit',
-	Commits = 'commits',
-	Init = 'init',
-	Log = 'log',
-	Merge = 'merge',
-	Pull = 'pull',
-	Push = 'push',
+        Add = 'add',
+        ApplyPatch = 'applyPatch',
+        CreateBranch = 'createBranch',
+        DeleteBranch = 'deleteBranch',
+        Branches = 'branches',
+        Checkout = 'checkout',
+        Clone = 'clone',
+        Commit = 'commit',
+        Commits = 'commits',
+        RenameBranch = 'renameBranch',
+        Init = 'init',
+        Log = 'log',
+        Merge = 'merge',
+        Pull = 'pull',
+        Push = 'push',
 	Status = 'status',
 	Switch = 'switch',
 }
@@ -86,22 +89,36 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		if (branch) cmd += ` ${branch}`;
 		return { command: cmd };
 	},
-	async [Operation.Branches](_index, repoPath) {
-		return { command: `git -C "${repoPath}" branch` };
-	},
-	async [Operation.Commits](_index, repoPath) {
-		return { command: `git -C "${repoPath}" log --oneline` };
-	},
+        async [Operation.Branches](_index, repoPath) {
+                return { command: `git -C "${repoPath}" branch` };
+        },
+        async [Operation.CreateBranch](index, repoPath) {
+                const branchName = this.getNodeParameter('branchName', index) as string;
+                return { command: `git -C "${repoPath}" branch ${branchName}` };
+        },
+        async [Operation.DeleteBranch](index, repoPath) {
+                const branchName = this.getNodeParameter('branchName', index) as string;
+                return { command: `git -C "${repoPath}" branch -d ${branchName}` };
+        },
+        async [Operation.RenameBranch](index, repoPath) {
+                const currentName = this.getNodeParameter('currentName', index) as string;
+                const newName = this.getNodeParameter('newName', index) as string;
+                return { command: `git -C "${repoPath}" branch -m ${currentName} ${newName}` };
+        },
+        async [Operation.Commits](_index, repoPath) {
+                return { command: `git -C "${repoPath}" log --oneline` };
+        },
 	async [Operation.Status](_index, repoPath) {
 		return { command: `git -C "${repoPath}" status` };
 	},
 	async [Operation.Log](_index, repoPath) {
 		return { command: `git -C "${repoPath}" log` };
 	},
-	async [Operation.Switch](index, repoPath) {
-		const target = this.getNodeParameter('target', index) as string;
-		return { command: `git -C "${repoPath}" switch ${target}` };
-	},
+        async [Operation.Switch](index, repoPath) {
+                const target = this.getNodeParameter('target', index) as string;
+                const create = this.getNodeParameter('create', index, false) as boolean;
+                return { command: `git -C "${repoPath}" switch${create ? ' -c' : ''} ${target}` };
+        },
 	async [Operation.Checkout](index, repoPath) {
 		const target = this.getNodeParameter('target', index) as string;
 		return { command: `git -C "${repoPath}" checkout ${target}` };
@@ -170,16 +187,31 @@ export class GitExtended implements INodeType {
 						value: 'applyPatch',
 						action: 'Apply patch',
 					},
-					{
-						name: 'Branches',
-						value: 'branches',
-						action: 'List branches',
-					},
-					{
-						name: 'Checkout',
-						value: 'checkout',
-						action: 'Checkout',
-					},
+                                        {
+                                                name: 'Branches',
+                                                value: 'branches',
+                                                action: 'List branches',
+                                        },
+                                        {
+                                                name: 'Create Branch',
+                                                value: 'createBranch',
+                                                action: 'Create branch',
+                                        },
+                                        {
+                                                name: 'Delete Branch',
+                                                value: 'deleteBranch',
+                                                action: 'Delete branch',
+                                        },
+                                        {
+                                                name: 'Rename Branch',
+                                                value: 'renameBranch',
+                                                action: 'Rename branch',
+                                        },
+                                        {
+                                                name: 'Checkout',
+                                                value: 'checkout',
+                                                action: 'Checkout',
+                                        },
 					{
 						name: 'Clone',
 						value: 'clone',
@@ -325,20 +357,59 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-			{
-				displayName: 'Branch',
-				name: 'branch',
-				type: 'string',
-				default: '',
-				description: 'Branch name',
-				displayOptions: {
-					show: {
-						operation: ['push', 'pull'],
-					},
-				},
-			},
-			{
-				displayName: 'Patch Input',
+                        {
+                                displayName: 'Branch',
+                                name: 'branch',
+                                type: 'string',
+                                default: '',
+                                description: 'Branch name',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['push', 'pull'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Branch Name',
+                                name: 'branchName',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'Name of the branch',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['createBranch', 'deleteBranch'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Current Name',
+                                name: 'currentName',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'Current branch name',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['renameBranch'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'New Name',
+                                name: 'newName',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'New branch name',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['renameBranch'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Patch Input',
 				name: 'patchInput',
 				type: 'options',
 				options: [
@@ -397,21 +468,33 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-			{
-				displayName: 'Target',
-				name: 'target',
-				type: 'string',
-				default: '',
-				required: true,
-				description: 'Branch or commit to operate on',
-				displayOptions: {
-					show: {
-						operation: ['switch', 'checkout', 'merge'],
-					},
-				},
-			},
-		],
-	};
+                        {
+                                displayName: 'Target',
+                                name: 'target',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'Branch or commit to operate on',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['switch', 'checkout', 'merge'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Create',
+                                name: 'create',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Create the branch if it does not exist',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['switch'],
+                                        },
+                                },
+                        },
+                ],
+        };
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
