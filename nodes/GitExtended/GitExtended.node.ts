@@ -51,7 +51,7 @@ const commandMap: Record<Operation, CommandBuilder> = {
 				url.password = creds.password as string;
 				repoUrl = url.toString();
 			} catch (error) {
-				throw new NodeOperationError(this, `Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`);
+                                throw new NodeOperationError(this.getNode(), `Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`);
 			}
 		}
 		const targetPath = this.getNodeParameter('targetPath', index) as string;
