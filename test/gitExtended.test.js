@@ -265,6 +265,45 @@ test('fetch operation fetches remote', async () => {
 	fs.rmSync(localDir, { recursive: true, force: true });
 });
 
+test('push operation supports force push', async () => {
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-force-remote-'));
+        require('child_process').execSync('git init --bare', { cwd: remoteDir });
+
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-force-repo-'));
+        require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: repoDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+
+        fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+        require('child_process').execSync('git add a.txt', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+        const first = require('child_process').execSync('git rev-parse HEAD', { cwd: repoDir }).toString().trim();
+        require('child_process').execSync('git push origin master', { cwd: repoDir });
+
+        fs.writeFileSync(path.join(repoDir, 'a.txt'), '2');
+        require('child_process').execSync('git commit -am "second"', { cwd: repoDir });
+        require('child_process').execSync('git push origin master', { cwd: repoDir });
+
+        require('child_process').execSync(`git reset --hard ${first}`, { cwd: repoDir });
+
+        const node = new GitExtended();
+        const context = new TestContext({
+                operation: 'push',
+                repoPath: repoDir,
+                remote: 'origin',
+                branch: 'master',
+                forcePush: true,
+        });
+        await node.execute.call(context);
+        const remoteHead = require('child_process')
+                .execSync('git --git-dir ' + remoteDir + ' rev-parse HEAD')
+                .toString()
+                .trim();
+        assert.strictEqual(remoteHead, first);
+        fs.rmSync(remoteDir, { recursive: true, force: true });
+        fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
 test('rebase operation rebases branch', async () => {
 	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-rebase-'));
 	require('child_process').execSync('git init', { cwd: repoDir });
