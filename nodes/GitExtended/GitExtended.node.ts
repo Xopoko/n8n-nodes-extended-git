@@ -102,7 +102,15 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 const remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
                 const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
-                let cmd = `git -C "${repoPath}" push`;
+                const pushLfsObjects = this.getNodeParameter('pushLfsObjects', index, false) as boolean;
+                let cmd = '';
+                if (pushLfsObjects) {
+                        let lfsCmd = `git -C "${repoPath}" lfs push --all`;
+                        if (remote) lfsCmd += ` ${remote}`;
+                        if (branch) lfsCmd += ` ${branch}`;
+                        cmd += `${lfsCmd} && `;
+                }
+                cmd += `git -C "${repoPath}" push`;
                 if (remote) cmd += ` ${remote}`;
                 if (branch) cmd += ` ${branch}`;
                 if (forcePush) cmd += ' --force';
@@ -504,6 +512,19 @@ export class GitExtended implements INodeType {
                                 type: 'boolean',
                                 default: false,
                                 description: 'Whether to force push',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['push'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Push LFS Objects',
+                                name: 'pushLfsObjects',
+                                type: 'boolean',
+                                default: false,
+                               description:
+                                       'Whether to run "git lfs push --all" before pushing to upload LFS objects',
                                 displayOptions: {
                                         show: {
                                                 operation: ['push'],
