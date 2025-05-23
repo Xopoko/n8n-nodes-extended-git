@@ -5,7 +5,7 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import { exec as execCallback } from 'child_process';
+import { exec as execCallback, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -13,6 +13,16 @@ import { URL } from 'url';
 import { promisify } from 'util';
 
 const exec = promisify(execCallback);
+
+const execNoOutput = (command: string) =>
+       new Promise<void>((resolve, reject) => {
+               const child = spawn(command, { shell: true, stdio: 'ignore' });
+               child.on('error', reject);
+               child.on('exit', (code) => {
+                       if (code === 0) resolve();
+                       else reject(new Error(`Command failed with exit code ${code}`));
+               });
+       });
 
 enum Operation {
 	Add = 'add',
@@ -744,6 +754,13 @@ export class GitExtended implements INodeType {
                                         },
                                 },
                         },
+                        {
+                                displayName: 'Skip Stdout',
+                                name: 'skipStdout',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to ignore command output to avoid maxBuffer errors',
+                        },
                 ],
         };
 
@@ -763,16 +780,26 @@ export class GitExtended implements INodeType {
 					});
 				}
 
-				const { command, tempFile } = await builder.call(this, i, repoPath);
+                                const { command, tempFile } = await builder.call(this, i, repoPath);
 
-				let stdout: string;
-				let stderr: string;
-				try {
-					({ stdout, stderr } = await exec(command));
-				} finally {
-					if (tempFile) await fs.unlink(tempFile);
-				}
-				returnData.push({ json: { stdout: stdout.trim(), stderr: stderr.trim() } });
+                                const skipStdout = this.getNodeParameter('skipStdout', i, false) as boolean;
+
+                                let stdout = '';
+                                let stderr = '';
+                                try {
+                                        if (skipStdout) {
+                                                await execNoOutput(command);
+                                        } else {
+                                                ({ stdout, stderr } = await exec(command));
+                                        }
+                                } finally {
+                                        if (tempFile) await fs.unlink(tempFile);
+                                }
+                                returnData.push({
+                                        json: skipStdout
+                                                ? {}
+                                                : { stdout: stdout.trim(), stderr: stderr.trim() },
+                                });
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({ json: { error: (error as Error).message }, pairedItem: i });
