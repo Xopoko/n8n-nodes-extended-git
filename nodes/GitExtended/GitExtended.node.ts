@@ -5,7 +5,7 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import { exec as execCallback, spawn } from 'child_process';
+import { exec as execCallback } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -14,15 +14,9 @@ import { promisify } from 'util';
 
 const exec = promisify(execCallback);
 
-const execNoOutput = (command: string) =>
-       new Promise<void>((resolve, reject) => {
-               const child = spawn(command, { shell: true, stdio: 'ignore' });
-               child.on('error', reject);
-               child.on('exit', (code) => {
-                       if (code === 0) resolve();
-                       else reject(new Error(`Command failed with exit code ${code}`));
-               });
-       });
+const execNoOutput = async (command: string) => {
+       await exec(command, { maxBuffer: 10 * 1024 * 1024 });
+};
 
 enum Operation {
 	Add = 'add',
