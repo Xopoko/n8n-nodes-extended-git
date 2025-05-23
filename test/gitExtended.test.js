@@ -524,5 +524,30 @@ test('applyPatch operation applies patch', async () => {
 	await node.execute.call(context);
 	const content = fs.readFileSync(path.join(repoDir, 'file.txt'), 'utf8').trim();
 	assert.strictEqual(content, '2');
-	fs.rmSync(repoDir, { recursive: true, force: true });
+        fs.rmSync(repoDir, { recursive: true, force: true });
+});
+
+test('configUser operation sets user identity', async () => {
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-auth-'));
+        require('child_process').execSync('git init', { cwd: repoDir });
+
+        const node = new GitExtended();
+        const context = new TestContext({
+                operation: 'configUser',
+                repoPath: repoDir,
+                userName: 'Test',
+                userEmail: 'test@example.com',
+        });
+        await node.execute.call(context);
+        const name = require('child_process')
+                .execSync('git config user.name', { cwd: repoDir })
+                .toString()
+                .trim();
+        const email = require('child_process')
+                .execSync('git config user.email', { cwd: repoDir })
+                .toString()
+                .trim();
+        assert.strictEqual(name, 'Test');
+        assert.strictEqual(email, 'test@example.com');
+        fs.rmSync(repoDir, { recursive: true, force: true });
 });

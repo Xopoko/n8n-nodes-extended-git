@@ -40,7 +40,7 @@ These are the basic steps for working with the starter. For detailed guidance on
 
 ## Git Extended node
 
-This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout`, `merge`, `applyPatch`, `branches`, `createBranch`, `deleteBranch`, `renameBranch`, `commits`, `fetch`, `rebase`, `cherryPick`, `revert`, `reset`, `stash`, and `tag`.
+This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout`, `merge`, `applyPatch`, `branches`, `createBranch`, `deleteBranch`, `renameBranch`, `commits`, `fetch`, `rebase`, `cherryPick`, `revert`, `reset`, `stash`, `tag`, and `configUser`.
 The push operation includes a **Force Push** option that appends `--force` to the command when enabled.
 
 The *Remote* parameter accepts either a remote name (such as `origin`) or a full repository URL. This lets you push or pull from a configured remote or directly specify another repository.
