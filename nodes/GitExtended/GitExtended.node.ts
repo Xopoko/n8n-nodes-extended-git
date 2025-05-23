@@ -101,20 +101,22 @@ const commandMap: Record<Operation, CommandBuilder> = {
         async [Operation.Push](index, repoPath) {
                 const remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
-                const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
-                const pushLfsObjects = this.getNodeParameter('pushLfsObjects', index, false) as boolean;
-                let cmd = '';
-                if (pushLfsObjects) {
-                        let lfsCmd = `git -C "${repoPath}" lfs push --all`;
-                        if (remote) lfsCmd += ` ${remote}`;
-                        if (branch) lfsCmd += ` ${branch}`;
-                        cmd += `${lfsCmd} && `;
-                }
-                cmd += `git -C "${repoPath}" push`;
-                if (remote) cmd += ` ${remote}`;
-                if (branch) cmd += ` ${branch}`;
-                if (forcePush) cmd += ' --force';
-                return { command: cmd };
+               const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
+               const pushLfsObjects = this.getNodeParameter('pushLfsObjects', index, false) as boolean;
+               const skipLfsPush = this.getNodeParameter('skipLfsPush', index, false) as boolean;
+               let cmd = '';
+               if (pushLfsObjects) {
+                       let lfsCmd = `git -C "${repoPath}" lfs push --all`;
+                       if (remote) lfsCmd += ` ${remote}`;
+                       if (branch) lfsCmd += ` ${branch}`;
+                       cmd += `${lfsCmd} && `;
+               }
+               cmd += `git -C "${repoPath}" push`;
+               if (remote) cmd += ` ${remote}`;
+               if (branch) cmd += ` ${branch}`;
+               if (forcePush) cmd += ' --force';
+               if (skipLfsPush) cmd = `GIT_LFS_SKIP_PUSH=1 ${cmd}`;
+               return { command: cmd };
         },
         async [Operation.LfsPush](index, repoPath) {
                 const remote = this.getNodeParameter('remote', index) as string;
@@ -525,6 +527,18 @@ export class GitExtended implements INodeType {
                                 default: false,
                                description:
                                        'Whether to run "git lfs push --all" before pushing to upload LFS objects',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['push'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Skip LFS Push',
+                                name: 'skipLfsPush',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to set GIT_LFS_SKIP_PUSH=1 to avoid uploading LFS objects',
                                 displayOptions: {
                                         show: {
                                                 operation: ['push'],

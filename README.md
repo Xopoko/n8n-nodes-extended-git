@@ -43,6 +43,7 @@ These are the basic steps for working with the starter. For detailed guidance on
 This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `lfsPush`, `pull`, `status`, `log`, `switch`, `checkout`, `merge`, `applyPatch`, `branches`, `createBranch`, `deleteBranch`, `renameBranch`, `commits`, `fetch`, `rebase`, `cherryPick`, `revert`, `reset`, `stash`, `tag`, and `configUser`.
 The push operation includes a **Force Push** option that appends `--force` to the command when enabled.
 Enable **Push LFS Objects** to run `git lfs push --all` automatically before pushing.
+Enable **Skip LFS Push** to set `GIT_LFS_SKIP_PUSH=1` and skip uploading LFS objects during the push.
 Use `lfsPush` to manually upload Git LFS objects when the remote requires them.
 
 The *Remote* parameter accepts either a remote name (such as `origin`) or a full repository URL. This lets you push or pull from a configured remote or directly specify another repository.
