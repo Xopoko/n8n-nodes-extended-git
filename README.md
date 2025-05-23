@@ -41,6 +41,7 @@ These are the basic steps for working with the starter. For detailed guidance on
 ## Git Extended node
 
 This repository includes a Git Extended node located in `/nodes/GitExtended`. It lets you execute common Git commands inside your workflows. The node supports operations like `clone`, `init`, `add`, `commit`, `push`, `pull`, `status`, `log`, `switch`, `checkout`, `merge`, `applyPatch`, `branches`, `createBranch`, `deleteBranch`, `renameBranch`, `commits`, `fetch`, `rebase`, `cherryPick`, `revert`, `reset`, `stash`, and `tag`.
+The push operation includes a **Force Push** option that appends `--force` to the command when enabled.
 
 Every operation requires a **Repository Path** parameter that defines the directory from which the Git command is executed. For `clone`, the repository will be created inside this directory.
 

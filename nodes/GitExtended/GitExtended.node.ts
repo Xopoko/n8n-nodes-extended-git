@@ -83,14 +83,16 @@ const commandMap: Record<Operation, CommandBuilder> = {
 			command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
 		};
 	},
-	async [Operation.Push](index, repoPath) {
-		const remote = this.getNodeParameter('remote', index) as string;
-		const branch = this.getNodeParameter('branch', index) as string;
-		let cmd = `git -C "${repoPath}" push`;
-		if (remote) cmd += ` ${remote}`;
-		if (branch) cmd += ` ${branch}`;
-		return { command: cmd };
-	},
+        async [Operation.Push](index, repoPath) {
+                const remote = this.getNodeParameter('remote', index) as string;
+                const branch = this.getNodeParameter('branch', index) as string;
+                const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
+                let cmd = `git -C "${repoPath}" push`;
+                if (remote) cmd += ` ${remote}`;
+                if (branch) cmd += ` ${branch}`;
+                if (forcePush) cmd += ' --force';
+                return { command: cmd };
+        },
 	async [Operation.Pull](index, repoPath) {
 		const remote = this.getNodeParameter('remote', index) as string;
 		const branch = this.getNodeParameter('branch', index) as string;
@@ -443,22 +445,34 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-			{
-				displayName: 'Branch',
-				name: 'branch',
-				type: 'string',
-				default: '',
-				description: 'Branch name',
-				displayOptions: {
-					show: {
-						operation: ['push', 'pull', 'fetch'],
-					},
-				},
-			},
-			{
-				displayName: 'Branch Name',
-				name: 'branchName',
-				type: 'string',
+                        {
+                                displayName: 'Branch',
+                                name: 'branch',
+                                type: 'string',
+                                default: '',
+                                description: 'Branch name',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['push', 'pull', 'fetch'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Force Push',
+                                name: 'forcePush',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to force push',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['push'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Branch Name',
+                                name: 'branchName',
+                                type: 'string',
 				default: '',
 				description: 'Name of the branch',
 				displayOptions: {
