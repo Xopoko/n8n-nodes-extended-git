@@ -34,11 +34,12 @@ enum Operation {
 	Reset = 'reset',
 	Revert = 'revert',
 	Stash = 'stash',
-	Tag = 'tag',
-	Pull = 'pull',
-	Push = 'push',
-	Status = 'status',
-	Switch = 'switch',
+        Tag = 'tag',
+        Pull = 'pull',
+        Push = 'push',
+        Status = 'status',
+        Switch = 'switch',
+        ConfigUser = 'configUser',
 }
 
 type CommandResult = { command: string; tempFile?: string };
@@ -180,11 +181,11 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		if (tagCommit) cmd += ` ${tagCommit}`;
 		return { command: cmd };
 	},
-	async [Operation.ApplyPatch](index, repoPath) {
-		const patchInput = this.getNodeParameter('patchInput', index) as string;
-		const binary = this.getNodeParameter('binary', index) as boolean;
-		let patchFile: string;
-		let tempFile: string | undefined;
+        async [Operation.ApplyPatch](index, repoPath) {
+                const patchInput = this.getNodeParameter('patchInput', index) as string;
+                const binary = this.getNodeParameter('binary', index) as boolean;
+                let patchFile: string;
+                let tempFile: string | undefined;
 		if (patchInput === 'text') {
 			const patchText = this.getNodeParameter('patchText', index) as string;
 			tempFile = join(tmpdir(), `patch-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -193,9 +194,17 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		} else {
 			patchFile = this.getNodeParameter('patchFile', index) as string;
 		}
-		const command = `git -C "${repoPath}" apply${binary ? ' --binary' : ''} "${patchFile}"`;
-		return { command, tempFile };
-	},
+                const command = `git -C "${repoPath}" apply${binary ? ' --binary' : ''} "${patchFile}"`;
+                return { command, tempFile };
+        },
+        async [Operation.ConfigUser](index, repoPath) {
+                const name = this.getNodeParameter('userName', index) as string;
+                const email = this.getNodeParameter('userEmail', index) as string;
+                const commands = [] as string[];
+                if (name) commands.push(`git -C "${repoPath}" config user.name "${name.replace(/"/g, '\\"')}"`);
+                if (email) commands.push(`git -C "${repoPath}" config user.email "${email.replace(/"/g, '\\"')}"`);
+                return { command: commands.join(' && ') };
+        },
 };
 
 export class GitExtended implements INodeType {
@@ -340,17 +349,22 @@ export class GitExtended implements INodeType {
 						value: 'status',
 						action: 'Show status',
 					},
-					{
-						name: 'Switch Branch',
-						value: 'switch',
-						action: 'Switch branch',
-					},
-					{
-						name: 'Tag',
-						value: 'tag',
-						action: 'Create tag',
-					},
-				],
+                                        {
+                                                name: 'Switch Branch',
+                                                value: 'switch',
+                                                action: 'Switch branch',
+                                        },
+                                        {
+                                                name: 'Configure User',
+                                                value: 'configUser',
+                                                action: 'Configure user identity',
+                                        },
+                                        {
+                                                name: 'Tag',
+                                                value: 'tag',
+                                                action: 'Create tag',
+                                        },
+                                ],
 				default: 'status',
 			},
 			{
@@ -630,20 +644,46 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-			{
-				displayName: 'Create',
-				name: 'create',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to create the branch if it does not exist',
-				displayOptions: {
-					show: {
-						operation: ['switch'],
-					},
-				},
-			},
-		],
-	};
+                        {
+                                displayName: 'Create',
+                                name: 'create',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to create the branch if it does not exist',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['switch'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'User Name',
+                                name: 'userName',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'User name for commits',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['configUser'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'User Email',
+                                name: 'userEmail',
+                                type: 'string',
+                                default: '',
+                                required: true,
+                                description: 'User email for commits',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['configUser'],
+                                        },
+                                },
+                        },
+                ],
+        };
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
