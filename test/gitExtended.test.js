@@ -651,3 +651,36 @@ test('push operation can push LFS objects', async () => {
         fs.rmSync(repoDir, { recursive: true, force: true });
         fs.rmSync(remoteDir, { recursive: true, force: true });
 });
+
+test('push operation can skip LFS objects', async () => {
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-src-'));
+        require('child_process').execSync('git init', { cwd: repoDir });
+        require('child_process').execSync('git lfs install --local', { cwd: repoDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+        require('child_process').execSync('git lfs track "*.bin"', { cwd: repoDir });
+        fs.writeFileSync(path.join(repoDir, 'file.bin'), 'data');
+        require('child_process').execSync('git add .gitattributes file.bin', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "add"', { cwd: repoDir });
+
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-remote-'));
+        require('child_process').execSync('git init --bare', { cwd: remoteDir });
+        require('child_process').execSync(`git remote add origin ${remoteDir}`, { cwd: repoDir });
+
+        const node = new GitExtended();
+        const context = new TestContext({
+                operation: 'push',
+                repoPath: repoDir,
+                remote: 'origin',
+                branch: 'master',
+                skipLfsPush: true,
+        });
+        await node.execute.call(context);
+
+        const objectsPath = path.join(remoteDir, 'lfs/objects');
+        const hasObjects = fs.existsSync(objectsPath) && fs.readdirSync(objectsPath).length > 0;
+        assert.ok(!hasObjects);
+
+        fs.rmSync(repoDir, { recursive: true, force: true });
+        fs.rmSync(remoteDir, { recursive: true, force: true });
+});
