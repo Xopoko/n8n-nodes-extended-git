@@ -568,3 +568,21 @@ test('commit operation succeeds when there are no changes', async () => {
         assert.ok(output.includes('No changes'));
         fs.rmSync(repoDir, { recursive: true, force: true });
 });
+
+test('commit operation stages unstaged files automatically', async () => {
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-unstaged-'));
+        require('child_process').execSync('git init', { cwd: repoDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+        fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+        require('child_process').execSync('git add a.txt', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+        fs.writeFileSync(path.join(repoDir, 'b.txt'), 'second');
+
+        const node = new GitExtended();
+        const context = new TestContext({ operation: 'commit', repoPath: repoDir, commitMessage: 'second' });
+        await node.execute.call(context);
+        const log = require('child_process').execSync('git log --oneline', { cwd: repoDir }).toString();
+        assert.ok(log.includes('second'));
+        fs.rmSync(repoDir, { recursive: true, force: true });
+});

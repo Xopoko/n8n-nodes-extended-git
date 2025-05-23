@@ -84,6 +84,15 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 if (stdout.trim() === '') {
                         return { command: 'echo "No changes to commit"' };
                 }
+
+                // Stage all changed and untracked files so the commit succeeds
+                await exec(`git -C "${repoPath}" add -A`);
+
+                const { stdout: diff } = await exec(`git -C "${repoPath}" diff --cached --name-only`);
+                if (diff.trim() === '') {
+                        return { command: 'echo "No staged changes to commit"' };
+                }
+
                 return {
                         command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
                 };
