@@ -329,7 +329,7 @@ export class GitExtended implements INodeType {
                                        {
                                                 name: 'LFS Push',
                                                 value: 'lfsPush',
-                                                action: 'Push git lfs objects',
+                                                action: 'Push Git LFS objects',
                                         },
                                        {
                                                 name: 'Log',
