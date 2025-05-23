@@ -551,3 +551,20 @@ test('configUser operation sets user identity', async () => {
         assert.strictEqual(email, 'test@example.com');
         fs.rmSync(repoDir, { recursive: true, force: true });
 });
+
+test('commit operation succeeds when there are no changes', async () => {
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-empty-'));
+        require('child_process').execSync('git init', { cwd: repoDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+        fs.writeFileSync(path.join(repoDir, 'a.txt'), '1');
+        require('child_process').execSync('git add a.txt', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "first"', { cwd: repoDir });
+
+        const node = new GitExtended();
+        const context = new TestContext({ operation: 'commit', repoPath: repoDir, commitMessage: 'empty' });
+        const [result] = await node.execute.call(context);
+        const output = result[0].json.stdout;
+        assert.ok(output.includes('No changes'));
+        fs.rmSync(repoDir, { recursive: true, force: true });
+});

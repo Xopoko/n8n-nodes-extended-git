@@ -78,12 +78,16 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		const files = this.getNodeParameter('files', index) as string;
 		return { command: `git -C "${repoPath}" add ${files}` };
 	},
-	async [Operation.Commit](index, repoPath) {
-		const message = this.getNodeParameter('commitMessage', index) as string;
-		return {
-			command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
-		};
-	},
+        async [Operation.Commit](index, repoPath) {
+                const message = this.getNodeParameter('commitMessage', index) as string;
+                const { stdout } = await exec(`git -C "${repoPath}" status --porcelain`);
+                if (stdout.trim() === '') {
+                        return { command: 'echo "No changes to commit"' };
+                }
+                return {
+                        command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
+                };
+        },
         async [Operation.Push](index, repoPath) {
                 const remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
