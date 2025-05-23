@@ -24,6 +24,9 @@ const execNoOutput = (command: string) =>
                });
        });
 
+// Larger buffer for commands that produce a lot of output
+const execLarge = (command: string) => exec(command, { maxBuffer: 200 * 1024 * 1024 });
+
 enum Operation {
 	Add = 'add',
 	ApplyPatch = 'applyPatch',
@@ -91,15 +94,15 @@ const commandMap: Record<Operation, CommandBuilder> = {
 	},
         async [Operation.Commit](index, repoPath) {
                 const message = this.getNodeParameter('commitMessage', index) as string;
-                const { stdout } = await exec(`git -C "${repoPath}" status --porcelain`);
+               const { stdout } = await execLarge(`git -C "${repoPath}" status --porcelain`);
                 if (stdout.trim() === '') {
                         return { command: 'echo "No changes to commit"' };
                 }
 
                 // Stage all changed and untracked files so the commit succeeds
-                await exec(`git -C "${repoPath}" add -A`);
+               await exec(`git -C "${repoPath}" add -A`);
 
-                const { stdout: diff } = await exec(`git -C "${repoPath}" diff --cached --name-only`);
+               const { stdout: diff } = await execLarge(`git -C "${repoPath}" diff --cached --name-only`);
                 if (diff.trim() === '') {
                         return { command: 'echo "No staged changes to commit"' };
                 }
