@@ -37,6 +37,7 @@ enum Operation {
         Tag = 'tag',
         Pull = 'pull',
         Push = 'push',
+        LfsPush = 'lfsPush',
         Status = 'status',
         Switch = 'switch',
         ConfigUser = 'configUser',
@@ -107,7 +108,15 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 if (forcePush) cmd += ' --force';
                 return { command: cmd };
         },
-	async [Operation.Pull](index, repoPath) {
+        async [Operation.LfsPush](index, repoPath) {
+                const remote = this.getNodeParameter('remote', index) as string;
+                const branch = this.getNodeParameter('branch', index) as string;
+                let cmd = `git -C "${repoPath}" lfs push --all`;
+                if (remote) cmd += ` ${remote}`;
+                if (branch) cmd += ` ${branch}`;
+                return { command: cmd };
+        },
+        async [Operation.Pull](index, repoPath) {
 		const remote = this.getNodeParameter('remote', index) as string;
 		const branch = this.getNodeParameter('branch', index) as string;
 		let cmd = `git -C "${repoPath}" pull`;
@@ -317,31 +326,36 @@ export class GitExtended implements INodeType {
 						value: 'init',
 						action: 'Initialize repository',
 					},
-					{
-						name: 'Log',
-						value: 'log',
-						action: 'Show log',
-					},
-					{
-						name: 'Merge',
-						value: 'merge',
-						action: 'Merge branch',
-					},
+                                       {
+                                                name: 'LFS Push',
+                                                value: 'lfsPush',
+                                                action: 'Push git lfs objects',
+                                        },
+                                       {
+                                                name: 'Log',
+                                                value: 'log',
+                                                action: 'Show log',
+                                        },
+                                       {
+                                                name: 'Merge',
+                                                value: 'merge',
+                                                action: 'Merge branch',
+                                        },
 					{
 						name: 'Pull',
 						value: 'pull',
 						action: 'Pull branch',
 					},
-					{
-						name: 'Push',
-						value: 'push',
-						action: 'Push branch',
-					},
-					{
-						name: 'Rebase',
-						value: 'rebase',
-						action: 'Rebase branch',
-					},
+                                        {
+                                                name: 'Push',
+                                                value: 'push',
+                                                action: 'Push branch',
+                                        },
+                                       {
+                                                name: 'Rebase',
+                                                value: 'rebase',
+                                                action: 'Rebase branch',
+                                        },
 					{
 						name: 'Rename Branch',
 						value: 'renameBranch',
@@ -468,10 +482,10 @@ export class GitExtended implements INodeType {
 				description: 'Remote name',
 				displayOptions: {
 					show: {
-						operation: ['push', 'pull', 'fetch'],
-					},
-				},
-			},
+                                                operation: ['push', 'pull', 'fetch', 'lfsPush'],
+                                        },
+                                },
+                        },
                         {
                                 displayName: 'Branch',
                                 name: 'branch',
@@ -480,7 +494,7 @@ export class GitExtended implements INodeType {
                                 description: 'Branch name',
                                 displayOptions: {
                                         show: {
-                                                operation: ['push', 'pull', 'fetch'],
+                                                operation: ['push', 'pull', 'fetch', 'lfsPush'],
                                         },
                                 },
                         },
