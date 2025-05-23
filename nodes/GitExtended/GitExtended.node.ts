@@ -5,7 +5,7 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import { exec as execCallback } from 'child_process';
+import { exec as execCallback, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -13,6 +13,27 @@ import { URL } from 'url';
 import { promisify } from 'util';
 
 const exec = promisify(execCallback);
+
+const execNoOutput = (command: string) =>
+       new Promise<void>((resolve, reject) => {
+               const child = spawn(command, { shell: true, stdio: 'ignore' });
+               child.on('error', reject);
+               child.on('exit', (code) => {
+                       if (code === 0) resolve();
+                       else reject(new Error(`Command failed with exit code ${code}`));
+               });
+       });
+
+const runCommand = async (
+       command: string,
+       skip: boolean,
+): Promise<{ stdout: string; stderr: string }> => {
+       if (skip) {
+               await execNoOutput(command);
+               return { stdout: '', stderr: '' };
+       }
+       return exec(command);
+};
 
 enum Operation {
 	Add = 'add',
@@ -79,25 +100,38 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		const files = this.getNodeParameter('files', index) as string;
 		return { command: `git -C "${repoPath}" add ${files}` };
 	},
-        async [Operation.Commit](index, repoPath) {
-                const message = this.getNodeParameter('commitMessage', index) as string;
-                const { stdout } = await exec(`git -C "${repoPath}" status --porcelain`);
-                if (stdout.trim() === '') {
-                        return { command: 'echo "No changes to commit"' };
-                }
+       async [Operation.Commit](index, repoPath) {
+               const message = this.getNodeParameter('commitMessage', index) as string;
+               const skip = this.getNodeParameter('skipStdout', index, false) as boolean;
 
-                // Stage all changed and untracked files so the commit succeeds
-                await exec(`git -C "${repoPath}" add -A`);
+               if (!skip) {
+                       const { stdout } = await exec(`git -C "${repoPath}" status --porcelain`);
+                       if (stdout.trim() === '') {
+                               return { command: 'echo "No changes to commit"' };
+                       }
+               }
 
-                const { stdout: diff } = await exec(`git -C "${repoPath}" diff --cached --name-only`);
-                if (diff.trim() === '') {
-                        return { command: 'echo "No staged changes to commit"' };
-                }
+               // Stage all changed and untracked files
+               await runCommand(`git -C "${repoPath}" add -A`, skip);
 
-                return {
-                        command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
-                };
-        },
+               if (!skip) {
+                       const { stdout: diff } = await exec(`git -C "${repoPath}" diff --cached --name-only`);
+                       if (diff.trim() === '') {
+                               return { command: 'echo "No staged changes to commit"' };
+                       }
+               } else {
+                       try {
+                               await execNoOutput(`git -C "${repoPath}" diff --cached --quiet`);
+                               return { command: 'echo "No staged changes to commit"' };
+                       } catch {
+                               // exit code 1 means there are staged changes
+                       }
+               }
+
+               return {
+                       command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
+               };
+       },
         async [Operation.Push](index, repoPath) {
                 const remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
@@ -744,6 +778,13 @@ export class GitExtended implements INodeType {
                                         },
                                 },
                         },
+                        {
+                                displayName: 'Skip Stdout',
+                                name: 'skipStdout',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to ignore command output to avoid maxBuffer errors',
+                        },
                 ],
         };
 
@@ -763,16 +804,26 @@ export class GitExtended implements INodeType {
 					});
 				}
 
-				const { command, tempFile } = await builder.call(this, i, repoPath);
+                                const { command, tempFile } = await builder.call(this, i, repoPath);
 
-				let stdout: string;
-				let stderr: string;
-				try {
-					({ stdout, stderr } = await exec(command));
-				} finally {
-					if (tempFile) await fs.unlink(tempFile);
-				}
-				returnData.push({ json: { stdout: stdout.trim(), stderr: stderr.trim() } });
+                                const skipStdout = this.getNodeParameter('skipStdout', i, false) as boolean;
+
+                                let stdout = '';
+                                let stderr = '';
+                                try {
+                                        if (skipStdout) {
+                                                await execNoOutput(command);
+                                        } else {
+                                                ({ stdout, stderr } = await exec(command));
+                                        }
+                                } finally {
+                                        if (tempFile) await fs.unlink(tempFile);
+                                }
+                                returnData.push({
+                                        json: skipStdout
+                                                ? {}
+                                                : { stdout: stdout.trim(), stderr: stderr.trim() },
+                                });
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({ json: { error: (error as Error).message }, pairedItem: i });
