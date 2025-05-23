@@ -25,7 +25,24 @@ const execNoOutput = (command: string) =>
        });
 
 // use a much larger buffer for commands that can output a lot
-const execLarge = (command: string) => exec(command, { maxBuffer: 200 * 1024 * 1024 });
+const execLarge = (command: string) => {
+    const [executable, ...args] = command.split(' ');
+    return new Promise((resolve, reject) => {
+        const child = spawn(executable, args, { maxBuffer: 200 * 1024 * 1024 });
+        let output = '';
+        child.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+        child.stderr.on('data', (data) => {
+            output += data.toString();
+        });
+        child.on('error', reject);
+        child.on('close', (code) => {
+            if (code === 0) resolve(output);
+            else reject(new Error(`Command failed with exit code ${code}: ${output}`));
+        });
+    });
+};
 
 enum Operation {
 	Add = 'add',
