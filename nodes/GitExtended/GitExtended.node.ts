@@ -5,14 +5,29 @@ import type {
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
-import { exec as execCallback } from 'child_process';
+import { exec as execCallback, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { URL } from 'url';
-import { promisify } from 'util';
 
-const exec = promisify(execCallback);
+type CommandOutput = { stdout: string; stderr: string; code: number };
+
+const runCommand = (command: string, captureOutput = true): Promise<CommandOutput> =>
+       new Promise((resolve, reject) => {
+               if (captureOutput) {
+                       execCallback(command, (error, stdout, stderr) => {
+                               const code = (error as any)?.code ?? 0;
+                               resolve({ stdout, stderr, code });
+                       });
+               } else {
+                       const child = spawn(command, { shell: true, stdio: 'ignore' });
+                       child.on('error', reject);
+                       child.on('close', (code) => {
+                               resolve({ stdout: '', stderr: '', code: code ?? 0 });
+                       });
+               }
+       });
 
 enum Operation {
 	Add = 'add',
@@ -46,13 +61,14 @@ enum Operation {
 type CommandResult = { command: string; tempFile?: string };
 
 type CommandBuilder = (
-	this: IExecuteFunctions,
-	index: number,
-	repoPath: string,
+        this: IExecuteFunctions,
+        index: number,
+        repoPath: string,
+        skipStdout: boolean,
 ) => Promise<CommandResult>;
 
 const commandMap: Record<Operation, CommandBuilder> = {
-	async [Operation.Clone](index, repoPath) {
+	async [Operation.Clone](index, repoPath, _skipStdout) {
 		let repoUrl = this.getNodeParameter('repoUrl', index) as string;
 		const auth = this.getNodeParameter('authentication', index) as string;
 		if (auth === 'gitExtendedApi') {
@@ -72,33 +88,47 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		const targetPath = this.getNodeParameter('targetPath', index) as string;
 		return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
 	},
-	async [Operation.Init](_index, repoPath) {
+	async [Operation.Init](_index, repoPath, _skipStdout) {
 		return { command: `git -C "${repoPath}" init` };
 	},
-	async [Operation.Add](index, repoPath) {
-		const files = this.getNodeParameter('files', index) as string;
-		return { command: `git -C "${repoPath}" add ${files}` };
-	},
-        async [Operation.Commit](index, repoPath) {
-                const message = this.getNodeParameter('commitMessage', index) as string;
-                const { stdout } = await exec(`git -C "${repoPath}" status --porcelain`);
-                if (stdout.trim() === '') {
-                        return { command: 'echo "No changes to commit"' };
-                }
+       async [Operation.Add](index, repoPath, _skipStdout) {
+               const files = this.getNodeParameter('files', index) as string;
+               return { command: `git -C "${repoPath}" add ${files}` };
+       },
+       async [Operation.Commit](index, repoPath, skipStdout) {
+               const message = this.getNodeParameter('commitMessage', index) as string;
 
-                // Stage all changed and untracked files so the commit succeeds
-                await exec(`git -C "${repoPath}" add -A`);
+               if (skipStdout) {
+                       const status = await runCommand(`git -C "${repoPath}" diff-index --quiet HEAD --`, false);
+                       if (status.code === 0) {
+                               return { command: 'echo "No changes to commit"' };
+                       }
+               } else {
+                       const { stdout } = await runCommand(`git -C "${repoPath}" status --porcelain`);
+                       if (stdout.trim() === '') {
+                               return { command: 'echo "No changes to commit"' };
+                       }
+               }
 
-                const { stdout: diff } = await exec(`git -C "${repoPath}" diff --cached --name-only`);
-                if (diff.trim() === '') {
-                        return { command: 'echo "No staged changes to commit"' };
-                }
+               await runCommand(`git -C "${repoPath}" add -A`, !skipStdout);
 
-                return {
-                        command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
-                };
+               if (skipStdout) {
+                       const diff = await runCommand(`git -C "${repoPath}" diff --cached --quiet`, false);
+                       if (diff.code === 0) {
+                               return { command: 'echo "No staged changes to commit"' };
+                       }
+               } else {
+                       const { stdout: diff } = await runCommand(`git -C "${repoPath}" diff --cached --name-only`);
+                       if (diff.trim() === '') {
+                               return { command: 'echo "No staged changes to commit"' };
+                       }
+               }
+
+               return {
+                       command: `git -C "${repoPath}" commit -m "${message.replace(/"/g, '\\"')}"`,
+               };
         },
-        async [Operation.Push](index, repoPath) {
+        async [Operation.Push](index, repoPath, _skipStdout) {
                 const remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
                const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
@@ -118,7 +148,7 @@ const commandMap: Record<Operation, CommandBuilder> = {
                if (skipLfsPush) cmd = `GIT_LFS_SKIP_PUSH=1 ${cmd}`;
                return { command: cmd };
         },
-        async [Operation.LfsPush](index, repoPath) {
+        async [Operation.LfsPush](index, repoPath, _skipStdout) {
                 const remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
                 let cmd = `git -C "${repoPath}" lfs push --all`;
@@ -126,7 +156,7 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 if (branch) cmd += ` ${branch}`;
                 return { command: cmd };
         },
-        async [Operation.Pull](index, repoPath) {
+        async [Operation.Pull](index, repoPath, _skipStdout) {
 		const remote = this.getNodeParameter('remote', index) as string;
 		const branch = this.getNodeParameter('branch', index) as string;
 		let cmd = `git -C "${repoPath}" pull`;
@@ -134,45 +164,45 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		if (branch) cmd += ` ${branch}`;
 		return { command: cmd };
 	},
-	async [Operation.Branches](_index, repoPath) {
+	async [Operation.Branches](_index, repoPath, _skipStdout) {
 		return { command: `git -C "${repoPath}" branch` };
 	},
-	async [Operation.CreateBranch](index, repoPath) {
+	async [Operation.CreateBranch](index, repoPath, _skipStdout) {
 		const branchName = this.getNodeParameter('branchName', index) as string;
 		return { command: `git -C "${repoPath}" branch ${branchName}` };
 	},
-	async [Operation.DeleteBranch](index, repoPath) {
+	async [Operation.DeleteBranch](index, repoPath, _skipStdout) {
 		const branchName = this.getNodeParameter('branchName', index) as string;
 		return { command: `git -C "${repoPath}" branch -d ${branchName}` };
 	},
-	async [Operation.RenameBranch](index, repoPath) {
+	async [Operation.RenameBranch](index, repoPath, _skipStdout) {
 		const currentName = this.getNodeParameter('currentName', index) as string;
 		const newName = this.getNodeParameter('newName', index) as string;
 		return { command: `git -C "${repoPath}" branch -m ${currentName} ${newName}` };
 	},
-	async [Operation.Commits](_index, repoPath) {
+	async [Operation.Commits](_index, repoPath, _skipStdout) {
 		return { command: `git -C "${repoPath}" log --oneline` };
 	},
-	async [Operation.Status](_index, repoPath) {
+	async [Operation.Status](_index, repoPath, _skipStdout) {
 		return { command: `git -C "${repoPath}" status` };
 	},
-	async [Operation.Log](_index, repoPath) {
+	async [Operation.Log](_index, repoPath, _skipStdout) {
 		return { command: `git -C "${repoPath}" log` };
 	},
-	async [Operation.Switch](index, repoPath) {
+	async [Operation.Switch](index, repoPath, _skipStdout) {
 		const target = this.getNodeParameter('target', index) as string;
 		const create = this.getNodeParameter('create', index, false) as boolean;
 		return { command: `git -C "${repoPath}" switch${create ? ' -c' : ''} ${target}` };
 	},
-	async [Operation.Checkout](index, repoPath) {
+	async [Operation.Checkout](index, repoPath, _skipStdout) {
 		const target = this.getNodeParameter('target', index) as string;
 		return { command: `git -C "${repoPath}" checkout ${target}` };
 	},
-	async [Operation.Merge](index, repoPath) {
+	async [Operation.Merge](index, repoPath, _skipStdout) {
 		const target = this.getNodeParameter('target', index) as string;
 		return { command: `git -C "${repoPath}" merge ${target}` };
 	},
-	async [Operation.Fetch](index, repoPath) {
+	async [Operation.Fetch](index, repoPath, _skipStdout) {
 		const remote = this.getNodeParameter('remote', index) as string;
 		const branch = this.getNodeParameter('branch', index) as string;
 		let cmd = `git -C "${repoPath}" fetch`;
@@ -180,40 +210,40 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		if (branch) cmd += ` ${branch}`;
 		return { command: cmd };
 	},
-	async [Operation.Rebase](index, repoPath) {
+	async [Operation.Rebase](index, repoPath, _skipStdout) {
 		const upstream = this.getNodeParameter('upstream', index) as string;
 		return { command: `git -C "${repoPath}" rebase ${upstream}` };
 	},
-	async [Operation.CherryPick](index, repoPath) {
+	async [Operation.CherryPick](index, repoPath, _skipStdout) {
 		const commit = this.getNodeParameter('commit', index) as string;
 		if (!commit) {
 			throw new NodeOperationError(this.getNode(), 'Commit ID is required');
 		}
 		return { command: `git -C "${repoPath}" cherry-pick ${commit}` };
 	},
-	async [Operation.Revert](index, repoPath) {
+	async [Operation.Revert](index, repoPath, _skipStdout) {
 		const commit = this.getNodeParameter('commit', index) as string;
 		if (!commit) {
 			throw new NodeOperationError(this.getNode(), 'Commit ID is required');
 		}
 		return { command: `git -C "${repoPath}" revert ${commit} --no-edit` };
 	},
-	async [Operation.Reset](index, repoPath) {
+	async [Operation.Reset](index, repoPath, _skipStdout) {
 		const commit = this.getNodeParameter('commit', index, '') as string;
 		const commitArg = commit ? ` ${commit}` : '';
 		return { command: `git -C "${repoPath}" reset --hard${commitArg}` };
 	},
-	async [Operation.Stash](_index, repoPath) {
+	async [Operation.Stash](_index, repoPath, _skipStdout) {
 		return { command: `git -C "${repoPath}" stash` };
 	},
-	async [Operation.Tag](index, repoPath) {
+	async [Operation.Tag](index, repoPath, _skipStdout) {
 		const tagName = this.getNodeParameter('tagName', index) as string;
 		const tagCommit = this.getNodeParameter('tagCommit', index) as string;
 		let cmd = `git -C "${repoPath}" tag ${tagName}`;
 		if (tagCommit) cmd += ` ${tagCommit}`;
 		return { command: cmd };
 	},
-        async [Operation.ApplyPatch](index, repoPath) {
+        async [Operation.ApplyPatch](index, repoPath, _skipStdout) {
                 const patchInput = this.getNodeParameter('patchInput', index) as string;
                 const binary = this.getNodeParameter('binary', index) as boolean;
                 let patchFile: string;
@@ -229,7 +259,7 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 const command = `git -C "${repoPath}" apply${binary ? ' --binary' : ''} "${patchFile}"`;
                 return { command, tempFile };
         },
-        async [Operation.ConfigUser](index, repoPath) {
+        async [Operation.ConfigUser](index, repoPath, _skipStdout) {
                 const name = this.getNodeParameter('userName', index) as string;
                 const email = this.getNodeParameter('userEmail', index) as string;
                 const commands = [] as string[];
@@ -744,6 +774,13 @@ export class GitExtended implements INodeType {
                                         },
                                 },
                         },
+                        {
+                                displayName: 'Skip Stdout',
+                                name: 'skipStdout',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to ignore command output to avoid maxBuffer errors',
+                        },
                 ],
         };
 
@@ -763,16 +800,24 @@ export class GitExtended implements INodeType {
 					});
 				}
 
-				const { command, tempFile } = await builder.call(this, i, repoPath);
+                               const skipStdout = this.getNodeParameter('skipStdout', i, false) as boolean;
 
-				let stdout: string;
-				let stderr: string;
-				try {
-					({ stdout, stderr } = await exec(command));
-				} finally {
-					if (tempFile) await fs.unlink(tempFile);
-				}
-				returnData.push({ json: { stdout: stdout.trim(), stderr: stderr.trim() } });
+                               const { command, tempFile } = await builder.call(this, i, repoPath, skipStdout);
+
+                               let stdout = '';
+                               let stderr = '';
+                               try {
+                                       const result = await runCommand(command, !skipStdout);
+                                       stdout = result.stdout;
+                                       stderr = result.stderr;
+                               } finally {
+                                       if (tempFile) await fs.unlink(tempFile);
+                               }
+                               returnData.push({
+                                       json: skipStdout
+                                               ? {}
+                                               : { stdout: stdout.trim(), stderr: stderr.trim() },
+                               });
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({ json: { error: (error as Error).message }, pairedItem: i });
