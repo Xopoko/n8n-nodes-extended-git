@@ -45,6 +45,7 @@ The push operation includes a **Force Push** option that appends `--force` to th
 Enable **Push LFS Objects** to run `git lfs push --all` automatically before pushing.
 Enable **Skip LFS Push** to set `GIT_LFS_SKIP_PUSH=1` and skip uploading LFS objects during the push.
 Use `lfsPush` to manually upload Git LFS objects when the remote requires them.
+Enable **Skip Stdout** to discard command output and avoid `stdout maxBuffer length exceeded` errors when commands produce large output.
 
 The *Remote* parameter accepts either a remote name (such as `origin`) or a full repository URL. This lets you push or pull from a configured remote or directly specify another repository.
 
