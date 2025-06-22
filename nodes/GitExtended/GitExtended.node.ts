@@ -65,26 +65,32 @@ type CommandBuilder = (
 ) => Promise<CommandResult>;
 
 const commandMap: Record<Operation, CommandBuilder> = {
-	async [Operation.Clone](index, repoPath) {
-		let repoUrl = this.getNodeParameter('repoUrl', index) as string;
-		const auth = this.getNodeParameter('authentication', index) as string;
-		if (auth === 'gitExtendedApi') {
-			const creds = await this.getCredentials('gitExtendedApi');
-			try {
-				const url = new URL(repoUrl);
-				url.username = creds.username as string;
-				url.password = creds.password as string;
-				repoUrl = url.toString();
-			} catch (error) {
-				throw new NodeOperationError(
-					this.getNode(),
-					`Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`,
-				);
-			}
-		}
-		const targetPath = this.getNodeParameter('targetPath', index) as string;
-		return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
-	},
+        async [Operation.Clone](index, repoPath) {
+                let repoUrl = this.getNodeParameter('repoUrl', index) as string;
+                const auth = this.getNodeParameter('authentication', index) as string;
+                if (auth === 'gitExtendedApi' || auth === 'custom') {
+                        const creds =
+                                auth === 'gitExtendedApi'
+                                        ? await this.getCredentials('gitExtendedApi')
+                                        : {
+                                                  username: this.getNodeParameter('customUsername', index),
+                                                  password: this.getNodeParameter('customPassword', index),
+                                          };
+                        try {
+                                const url = new URL(repoUrl);
+                                url.username = creds.username as string;
+                                url.password = creds.password as string;
+                                repoUrl = url.toString();
+                        } catch (error) {
+                                throw new NodeOperationError(
+                                        this.getNode(),
+                                        `Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`,
+                                );
+                        }
+                }
+                const targetPath = this.getNodeParameter('targetPath', index) as string;
+                return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
+        },
 	async [Operation.Init](_index, repoPath) {
 		return { command: `git -C "${repoPath}" init` };
 	},
@@ -112,12 +118,28 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 };
         },
         async [Operation.Push](index, repoPath) {
-                const remote = this.getNodeParameter('remote', index) as string;
+                let remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
                const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
                const pushLfsObjects = this.getNodeParameter('pushLfsObjects', index, false) as boolean;
                const skipLfsPush = this.getNodeParameter('skipLfsPush', index, false) as boolean;
-               let cmd = '';
+                const auth = this.getNodeParameter('authentication', index) as string;
+                if (remote && (auth === 'gitExtendedApi' || auth === 'custom')) {
+                        const creds =
+                                auth === 'gitExtendedApi'
+                                        ? await this.getCredentials('gitExtendedApi')
+                                        : {
+                                                  username: this.getNodeParameter('customUsername', index),
+                                                  password: this.getNodeParameter('customPassword', index),
+                                          };
+                        try {
+                                const url = new URL(remote);
+                                url.username = creds.username as string;
+                                url.password = creds.password as string;
+                                remote = url.toString();
+                        } catch {}
+                }
+                let cmd = '';
                if (pushLfsObjects) {
                        let lfsCmd = `git -C "${repoPath}" lfs push --all`;
                        if (remote) lfsCmd += ` ${remote}`;
@@ -140,13 +162,29 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 return { command: cmd };
         },
         async [Operation.Pull](index, repoPath) {
-		const remote = this.getNodeParameter('remote', index) as string;
-		const branch = this.getNodeParameter('branch', index) as string;
-		let cmd = `git -C "${repoPath}" pull`;
-		if (remote) cmd += ` ${remote}`;
-		if (branch) cmd += ` ${branch}`;
-		return { command: cmd };
-	},
+                let remote = this.getNodeParameter('remote', index) as string;
+                const branch = this.getNodeParameter('branch', index) as string;
+                const auth = this.getNodeParameter('authentication', index) as string;
+                if (remote && (auth === 'gitExtendedApi' || auth === 'custom')) {
+                        const creds =
+                                auth === 'gitExtendedApi'
+                                        ? await this.getCredentials('gitExtendedApi')
+                                        : {
+                                                  username: this.getNodeParameter('customUsername', index),
+                                                  password: this.getNodeParameter('customPassword', index),
+                                          };
+                        try {
+                                const url = new URL(remote);
+                                url.username = creds.username as string;
+                                url.password = creds.password as string;
+                                remote = url.toString();
+                        } catch {}
+                }
+                let cmd = `git -C "${repoPath}" pull`;
+                if (remote) cmd += ` ${remote}`;
+                if (branch) cmd += ` ${branch}`;
+                return { command: cmd };
+        },
 	async [Operation.Branches](_index, repoPath) {
 		return { command: `git -C "${repoPath}" branch` };
 	},
@@ -421,24 +459,53 @@ export class GitExtended implements INodeType {
 				displayName: 'Authentication',
 				name: 'authentication',
 				type: 'options',
-				options: [
-					{
-						name: 'Authenticate',
-						value: 'gitExtendedApi',
-					},
-					{
-						name: 'None',
-						value: 'none',
-					},
-				],
-				displayOptions: {
-					show: {
-						operation: ['clone', 'push', 'pull'],
-					},
-				},
-				default: 'none',
-				description: 'The way to authenticate',
-			},
+                                options: [
+                                        {
+                                                name: 'Authenticate',
+                                                value: 'gitExtendedApi',
+                                        },
+                                        {
+                                                name: 'Custom',
+                                                value: 'custom',
+                                        },
+                                        {
+                                                name: 'None',
+                                                value: 'none',
+                                        },
+                                ],
+                                displayOptions: {
+                                        show: {
+                                                operation: ['clone', 'push', 'pull'],
+                                        },
+                                },
+                                default: 'none',
+                                description: 'The way to authenticate',
+                        },
+                        {
+                                displayName: 'Username',
+                                name: 'customUsername',
+                                type: 'string',
+                                default: '',
+                                displayOptions: {
+                                        show: {
+                                                authentication: ['custom'],
+                                                operation: ['clone', 'push', 'pull'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Password',
+                                name: 'customPassword',
+                                type: 'string',
+                                typeOptions: { password: true },
+                                default: '',
+                                displayOptions: {
+                                        show: {
+                                                authentication: ['custom'],
+                                                operation: ['clone', 'push', 'pull'],
+                                        },
+                                },
+                        },
 			{
 				displayName: 'Repository Path',
 				name: 'repoPath',

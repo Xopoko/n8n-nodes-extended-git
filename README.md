@@ -47,6 +47,10 @@ Enable **Skip LFS Push** to set `GIT_LFS_SKIP_PUSH=1` and skip uploading LFS obj
 Use `lfsPush` to manually upload Git LFS objects when the remote requires them.
 Enable **Skip Stdout** to discard command output and avoid `stdout maxBuffer length exceeded` errors when commands produce large output.
 
+Clone, push, and pull operations include an **Authentication** option. Choose
+**Authenticate** to use stored credentials, **Custom** to provide a username and
+password for that run, or **None** when no authentication is needed.
+
 The *Remote* parameter accepts either a remote name (such as `origin`) or a full repository URL. This lets you push or pull from a configured remote or directly specify another repository.
 
 Example usage:

@@ -72,6 +72,41 @@ test('clone operation clones repository', async () => {
 	fs.rmSync(cloneDir, { recursive: true, force: true });
 });
 
+test('clone operation with custom authentication clones repository', async () => {
+    const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-src-'));
+    const repoDir = path.join(sourceDir, 'repo');
+    fs.mkdirSync(repoDir);
+    fs.writeFileSync(path.join(repoDir, 'README.md'), 'hello');
+    require('child_process').execSync('git init', { cwd: repoDir });
+    require('child_process').execSync('git config user.email "test@example.com"', {
+        cwd: repoDir,
+    });
+    require('child_process').execSync('git config user.name "Test"', {
+        cwd: repoDir,
+    });
+    require('child_process').execSync('git add README.md', { cwd: repoDir });
+    require('child_process').execSync('git commit -m "init"', { cwd: repoDir });
+
+    const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-clone-'));
+    const node = new GitExtended();
+    const targetPath = path.join(cloneDir, 'custom');
+    const repoUrl = `file://${repoDir}`;
+    const context = new TestContext({
+        operation: 'clone',
+        repoPath: cloneDir,
+        repoUrl,
+        targetPath,
+        authentication: 'custom',
+        customUsername: 'u',
+        customPassword: 'p',
+    });
+    await node.execute.call(context);
+    assert.ok(fs.existsSync(path.join(targetPath, '.git')));
+
+    fs.rmSync(sourceDir, { recursive: true, force: true });
+    fs.rmSync(cloneDir, { recursive: true, force: true });
+});
+
 test('branches operation lists branches', async () => {
 	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-branches-'));
 	require('child_process').execSync('git init', { cwd: repoDir });
