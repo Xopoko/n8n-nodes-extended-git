@@ -137,7 +137,9 @@ const commandMap: Record<Operation, CommandBuilder> = {
                                 url.username = creds.username as string;
                                 url.password = creds.password as string;
                                 remote = url.toString();
-                        } catch {}
+                        } catch (error) {
+                                throw new NodeOperationError(this, `Failed to process the remote URL: ${remote}. Error: ${error.message}`);
+                        }
                 }
                 let cmd = '';
                if (pushLfsObjects) {
