@@ -58,7 +58,12 @@ enum Operation {
 
 type CommandResult = { command: string; tempFile?: string };
 
-async function injectCredentials(this: IExecuteFunctions, remote: string, index: number) {
+async function injectCredentials(
+       this: IExecuteFunctions,
+       remote: string,
+       index: number,
+       strict = false,
+) {
        const auth = this.getNodeParameter('authentication', index) as string;
        if (remote && (auth === 'gitExtendedApi' || auth === 'custom')) {
                const creds =
@@ -73,8 +78,13 @@ async function injectCredentials(this: IExecuteFunctions, remote: string, index:
                        url.username = creds.username as string;
                        url.password = creds.password as string;
                        remote = url.toString();
-               } catch {
-                       // ignore if remote is not a URL
+               } catch (error) {
+                       if (strict) {
+                               throw new NodeOperationError(
+                                       this.getNode(),
+                                       `Failed to parse the repository URL: ${remote}. Error: ${(error as Error).message}`,
+                               );
+                       }
                }
        }
        return remote;
@@ -89,27 +99,7 @@ type CommandBuilder = (
 const commandMap: Record<Operation, CommandBuilder> = {
         async [Operation.Clone](index, repoPath) {
                 let repoUrl = this.getNodeParameter('repoUrl', index) as string;
-                const auth = this.getNodeParameter('authentication', index) as string;
-                if (auth === 'gitExtendedApi' || auth === 'custom') {
-                        const creds =
-                                auth === 'gitExtendedApi'
-                                        ? await this.getCredentials('gitExtendedApi')
-                                        : {
-                                                  username: this.getNodeParameter('customUsername', index),
-                                                  password: this.getNodeParameter('customPassword', index),
-                                          };
-                        try {
-                                const url = new URL(repoUrl);
-                                url.username = creds.username as string;
-                                url.password = creds.password as string;
-                                repoUrl = url.toString();
-                        } catch (error) {
-                                throw new NodeOperationError(
-                                        this.getNode(),
-                                        `Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`,
-                                );
-                        }
-                }
+                repoUrl = await injectCredentials.call(this, repoUrl, index, true);
                 const targetPath = this.getNodeParameter('targetPath', index) as string;
                 return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
         },
