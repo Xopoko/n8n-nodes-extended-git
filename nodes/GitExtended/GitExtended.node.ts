@@ -96,7 +96,7 @@ type CommandBuilder = (
 	repoPath: string,
 ) => Promise<CommandResult>;
 
-const commandMap: Record<Operation, CommandBuilder> = {
+const commandMap = {
         async [Operation.Clone](index, repoPath) {
                 let repoUrl = this.getNodeParameter('repoUrl', index) as string;
                 repoUrl = await injectCredentials.call(this, repoUrl, index, true);
@@ -245,7 +245,7 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		const tagName = this.getNodeParameter('tagName', index) as string;
 		const tagCommit = this.getNodeParameter('tagCommit', index) as string;
 		let cmd = `git -C "${repoPath}" tag ${tagName}`;
-		if (tagCommit) cmd += ` ${tagCommit}`;
+} as Record<Operation, CommandBuilder>;
 		return { command: cmd };
 	},
         async [Operation.ApplyPatch](index, repoPath) {
