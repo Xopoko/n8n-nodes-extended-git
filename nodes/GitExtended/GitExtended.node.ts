@@ -58,6 +58,28 @@ enum Operation {
 
 type CommandResult = { command: string; tempFile?: string };
 
+async function injectCredentials(this: IExecuteFunctions, remote: string, index: number) {
+       const auth = this.getNodeParameter('authentication', index) as string;
+       if (remote && (auth === 'gitExtendedApi' || auth === 'custom')) {
+               const creds =
+                       auth === 'gitExtendedApi'
+                               ? await this.getCredentials('gitExtendedApi')
+                               : {
+                                        username: this.getNodeParameter('customUsername', index),
+                                        password: this.getNodeParameter('customPassword', index),
+                                };
+               try {
+                       const url = new URL(remote);
+                       url.username = creds.username as string;
+                       url.password = creds.password as string;
+                       remote = url.toString();
+               } catch {
+                       // ignore if remote is not a URL
+               }
+       }
+       return remote;
+}
+
 type CommandBuilder = (
 	this: IExecuteFunctions,
 	index: number,
@@ -118,51 +140,21 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 };
         },
         async [Operation.Push](index, repoPath) {
-                let remote = this.getNodeParameter('remote', index) as string;
-                const branch = this.getNodeParameter('branch', index) as string;
+               let remote = this.getNodeParameter('remote', index) as string;
+               const branch = this.getNodeParameter('branch', index) as string;
                const forcePush = this.getNodeParameter('forcePush', index, false) as boolean;
                const pushLfsObjects = this.getNodeParameter('pushLfsObjects', index, false) as boolean;
                const skipLfsPush = this.getNodeParameter('skipLfsPush', index, false) as boolean;
-                const auth = this.getNodeParameter('authentication', index) as string;
-                if (remote && (auth === 'gitExtendedApi' || auth === 'custom')) {
-                        const creds =
-                                auth === 'gitExtendedApi'
-                                        ? await this.getCredentials('gitExtendedApi')
-                                        : {
-                                                  username: this.getNodeParameter('customUsername', index),
-                                                  password: this.getNodeParameter('customPassword', index),
-                                          };
-                        try {
-                                const url = new URL(remote);
-                                url.username = creds.username as string;
-                                url.password = creds.password as string;
-                                remote = url.toString();
-                        } catch (error) {
-                                throw new NodeOperationError(this, `Failed to process the remote URL: ${remote}. Error: ${error.message}`);
-                        }
-                }
-                let cmd = '';
-               if (pushLfsObjects) {
-                       let lfsCmd = `git -C "${repoPath}" lfs push --all`;
-                       if (remote) lfsCmd += ` ${remote}`;
-                       if (branch) lfsCmd += ` ${branch}`;
-                       cmd += `${lfsCmd} && `;
-               }
-               cmd += `git -C "${repoPath}" push`;
+               remote = await injectCredentials.call(this, remote, index);
+               let cmd = '';
+               let remote = this.getNodeParameter('remote', index) as string;
+               const branch = this.getNodeParameter('branch', index) as string;
+               remote = await injectCredentials.call(this, remote, index);
+               let cmd = `git -C "${repoPath}" pull`;
                if (remote) cmd += ` ${remote}`;
                if (branch) cmd += ` ${branch}`;
-               if (forcePush) cmd += ' --force';
-               if (skipLfsPush) cmd = `GIT_LFS_SKIP_PUSH=1 ${cmd}`;
                return { command: cmd };
-        },
-        async [Operation.LfsPush](index, repoPath) {
-                const remote = this.getNodeParameter('remote', index) as string;
-                const branch = this.getNodeParameter('branch', index) as string;
-                let cmd = `git -C "${repoPath}" lfs push --all`;
-                if (remote) cmd += ` ${remote}`;
-                if (branch) cmd += ` ${branch}`;
-                return { command: cmd };
-        },
+       },
         async [Operation.Pull](index, repoPath) {
                 let remote = this.getNodeParameter('remote', index) as string;
                 const branch = this.getNodeParameter('branch', index) as string;
