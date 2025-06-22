@@ -1,59 +1,77 @@
-# AI Agent Guidelines
+# Project Agents and AI Workflow Guide
 
-This repository contains the **GitLab Extended** node for n8n and is intended to be used by AI agents through n8n's "Tools AI Agent" functionality. The following guidelines describe how agents should behave when interacting with this codebase and when automating GitLab workflows.
+This repository ships the **Git Extended** node for n8n. The node exposes a wide range of Git commands, enabling autonomous agents in n8n to automate repository maintenance. This guide explains how agents should operate, how to run local tests and how to extend the system.
 
-The node surfaces almost the entire GitLab REST API, enabling automation of branches, issues, merge requests, pipelines, and more. You can inspect its schema in [`nodes/GitlabExtended/GitlabExtended.node.ts`](nodes/GitlabExtended/GitlabExtended.node.ts).
+## Developer Guidelines
 
-## Development Instructions
-
-- Always run `npm lint` to check for errors and `npm test` before committing changes. This command builds the project and executes the unit and lint tests.
-- The environment does **not** have internet access after setup. Do not run commands that attempt to fetch packages such as `npm install` or any other network operations.
-- Commands for PHP or Swift are unavailable; avoid `php`, `swift build`, or their respective test commands.
+- Always run `npm run lint` and `npm test` before committing changes. These commands compile the project and execute all lint and unit tests.
+- The environment has **no internet access** after setup. Do not run commands that attempt to fetch packages such as `npm install` or any other network operations.
+- Commands for PHP or Swift are unavailable. Avoid `php`, `swift build`, or their respective test commands.
 - Use a project-scoped Personal Access Token with only the scopes required for the agent's role (generally `api`).
 
-## Using the GitLab Extended Node with AI
+## 1. Overview of Agent Architecture
 
-The **GitLab Extended** node exposes nearly all of GitLab's REST API for automation. An AI agent can leverage this node as a tool to perform tasks such as:
+Agents run within n8n as workflows. Each agent can call the **Git Extended** node to execute Git commands. The node implementation lives in [`nodes/GitExtended/GitExtended.node.ts`](nodes/GitExtended/GitExtended.node.ts). Agents issue tasks via prompts, n8n plans tool calls and runs Git operations.
 
-- Creating or updating issues
-- Managing merge requests and branches
-- Triggering, retrying, or inspecting pipelines
-- Accessing raw API endpoints for unsupported operations
+## 2. Agent Catalog
 
-The node is marked `usableAsTool: true`, so in n8n an AI agent can call its operations directly based on natural language prompts. When writing prompts, be explicit about the desired GitLab resource and action (e.g. "create an issue titled 'Upgrade dependencies'" or "merge MR !42 if the pipeline succeeded"). The agent will map these requests to the correct operation.
-
-### Typical Agent Roles
-
-- **Issue Tracker Agent** – triages new issues, closes stale ones, posts summary comments, and ensures the backlog stays organized.
-- **Merge Request Manager Agent** – reviews open merge requests, ensures they meet merge criteria, rebases or labels them, and can merge once ready.
-- **CI/CD Optimizer Agent** – monitors pipelines, retries failures, creates issues for repeated problems, and helps keep CI green.
+| Agent | Purpose | Trigger/Input | Output | Tools/Integrations |
+| ----- | ------- | ------------- | ------ | ----------------- |
+| **Repo Maintenance Agent** | Manage branches and commits | User prompt or schedule | Branch updates | Git Extended node |
+| **Release Manager Agent** | Tag releases and create release branches | User prompt or CI event | Release notes or tags | Git Extended node |
+| **Mirror Sync Agent** | Keep remotes synchronized | Schedule or webhook | Push/pull results | Git Extended node |
 
 These roles are suggestions. Agents can be customized for other workflows such as release management or support automation.
+
+## 3. Setup and Dependencies per Agent
+
+1. Install this package in n8n (through Community Nodes or during setup).
+2. Ensure the machine running n8n has the `git` binary available and configure **Git Extended Credentials** if authentication is required.
+3. Add an **AI Agent** node in n8n, choose an OpenAI Chat model, and attach the **Git Extended** tool with the credentials.
+4. Provide a clear prompt describing the task. The agent will then plan tool actions and run the appropriate Git commands.
+
+Keep prompts concise and prefer direct instructions like "fetch", "update", "create", or "delete". If multiple steps are required, describe the end goal and the agent will chain operations.
+
+## 4. Configuration Format and Structure
+
+Agents are configured in n8n workflows. Use the credentials and node settings provided in this repo. The `credentials/` directory contains the credential type definition and `nodes/` contains the node code.
+
+## 5. Invocation Flow & Lifecycle
+
+1. The user (Agent 0) issues a prompt in n8n.
+2. The agent interprets the request and plans the necessary Git commands.
+3. The agent executes the commands via the **Git Extended** node.
+4. Results are returned to the user or logged for later review.
+
+## 6. Debugging and Observability
+
+- Review n8n execution logs to trace agent steps. Enable return of intermediate steps in the AI Agent node for detailed reasoning.
+- Use `npm test` locally to ensure the node behaves correctly. Lint issues can be checked with `npm run lint`.
+- If a Git command fails, log the error and stop instead of retrying indefinitely.
+
+## 7. Extending or Adding Agents
+
+To extend the system or create a new agent:
+
+1. Implement new node logic or tools under `nodes/` and add any credentials under `credentials/`.
+2. Register the node in your n8n workflow and update prompts accordingly.
+3. Document the new agent or tool in this file so other contributors and AI agents understand its purpose.
 
 ### Prompt Examples
 
 ```
-• "Create an issue titled 'Upgrade dependencies' in project 123 with label 'maintenance'."
-• "List open merge requests targeting `main` that have failing pipelines."
-• "Merge MR !42 if it has ≥2 approvals and a successful pipeline; otherwise report the blockers."
-• "Protect the 'develop' branch."
+• "Clone https://github.com/example/repo.git into /tmp/work"
+• "Create a branch `feature/login` and push to origin"
+• "Apply patch `fix.patch` then commit and push"
+• "List recent commits on branch `main`"
 ```
-
-## Integration Steps (Summary)
-
-1. Install this package in n8n (through Community Nodes or `npm install` beforehand).
-2. Configure **Gitlab Extended API** credentials with your GitLab server URL and personal access token.
-3. Add an **AI Agent** node in n8n, choose an OpenAI Chat model, and attach the **GitLab Extended** tool with the credentials.
-4. Provide a clear prompt describing the task. The agent will then plan tool actions and call GitLab accordingly.
-
-Keep prompts concise and prefer direct instructions like "fetch", "update", "create", or "delete". If multiple steps are required, describe the end goal and the agent will chain operations.
 
 ## Design Considerations
 
 - Start with read-only or low-impact operations while testing new prompts.
-- Monitor agent runs and review logs during development (enable return of intermediate steps in the n8n agent node).
+- Monitor agent runs and review logs during development.
 - Limit the toolset to what the agent needs for its role. Provide system messages to set boundaries (e.g. "Never delete branches without explicit instruction").
-- Remember token and iteration limits. Use filtering parameters (like `limit`) when listing large sets of issues, MRs, or pipelines.
-- If an API call fails, log the error and stop instead of retrying indefinitely.
+- Remember token and iteration limits. Use filtering parameters (like `--max-count`) when listing large sets of commits or branches.
+- If a Git command fails, log the error and stop instead of retrying indefinitely.
 
-Following these guidelines will help agents operate safely and effectively with the GitLab Extended node.
+Following these guidelines will help agents operate safely and effectively with the Git Extended node.
