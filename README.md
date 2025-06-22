@@ -49,7 +49,9 @@ Enable **Skip Stdout** to discard command output and avoid `stdout maxBuffer len
 
 Clone, push, and pull operations include an **Authentication** option. Choose
 **Authenticate** to use stored credentials, **Custom** to provide a username and
-password for that run, or **None** when no authentication is needed.
+password for that run, or **None** when no authentication is needed. When using
+the **Custom** option, supply the credentials through the node parameters so
+they can come from previous steps in the workflow.
 
 The *Remote* parameter accepts either a remote name (such as `origin`) or a full repository URL. This lets you push or pull from a configured remote or directly specify another repository.
 
