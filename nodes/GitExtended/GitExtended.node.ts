@@ -63,7 +63,7 @@ async function injectCredentials(
        remote: string,
        index: number,
        strict = false,
-) {
+): Promise<string> {
        const auth = this.getNodeParameter('authentication', index) as string;
        if (remote && (auth === 'gitExtendedApi' || auth === 'custom')) {
                const creds =
