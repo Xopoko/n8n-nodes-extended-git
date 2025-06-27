@@ -44,6 +44,7 @@ This repository includes a Git Extended node located in `/nodes/GitExtended`. It
 The push operation includes a **Force Push** option that appends `--force` to the command when enabled.
 Enable **Push LFS Objects** to run `git lfs push --all` automatically before pushing.
 Enable **Skip LFS Push** to set `GIT_LFS_SKIP_PUSH=1` and skip uploading LFS objects during the push.
+Enable **Skip LFS Smudge** to set `GIT_LFS_SKIP_SMUDGE=1` when cloning, pulling, or fetching so Git LFS objects are not downloaded.
 Use `lfsPush` to manually upload Git LFS objects when the remote requires them.
 Enable **Skip Stdout** to discard command output and avoid `stdout maxBuffer length exceeded` errors when commands produce large output.
 
