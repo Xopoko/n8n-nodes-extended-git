@@ -65,14 +65,15 @@ type CommandBuilder = (
 ) => Promise<CommandResult>;
 
 const commandMap: Record<Operation, CommandBuilder> = {
-	async [Operation.Clone](index, repoPath) {
-		let repoUrl = this.getNodeParameter('repoUrl', index) as string;
-               const auth = this.getNodeParameter('authentication', index) as string;
-               if (auth === 'gitExtendedApi' || auth === 'custom') {
-                       const creds =
-                               auth === 'gitExtendedApi'
-                                       ? await this.getCredentials('gitExtendedApi')
-                                       : {
+        async [Operation.Clone](index, repoPath) {
+                let repoUrl = this.getNodeParameter('repoUrl', index) as string;
+                const auth = this.getNodeParameter('authentication', index) as string;
+                const skipLfsSmudge = this.getNodeParameter('skipLfsSmudge', index, false) as boolean;
+                if (auth === 'gitExtendedApi' || auth === 'custom') {
+                        const creds =
+                                auth === 'gitExtendedApi'
+                                        ? await this.getCredentials('gitExtendedApi')
+                                        : {
                                                username: this.getNodeParameter('customUsername', index) as string,
                                                password: this.getNodeParameter('customPassword', index) as string,
                                        };
@@ -87,10 +88,12 @@ const commandMap: Record<Operation, CommandBuilder> = {
 					`Failed to parse the repository URL: ${repoUrl}. Error: ${(error as Error).message}`,
 				);
 			}
-		}
-		const targetPath = this.getNodeParameter('targetPath', index) as string;
-		return { command: `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"` };
-	},
+                }
+                const targetPath = this.getNodeParameter('targetPath', index) as string;
+                let cmd = `git -C "${repoPath}" clone ${repoUrl} "${targetPath}"`;
+                if (skipLfsSmudge) cmd = `GIT_LFS_SKIP_SMUDGE=1 ${cmd}`;
+                return { command: cmd };
+        },
 	async [Operation.Init](_index, repoPath) {
 		return { command: `git -C "${repoPath}" init` };
 	},
@@ -164,13 +167,14 @@ const commandMap: Record<Operation, CommandBuilder> = {
                 return { command: cmd };
         },
         async [Operation.Pull](index, repoPath) {
-               let remote = this.getNodeParameter('remote', index) as string;
-               const branch = this.getNodeParameter('branch', index) as string;
-               const auth = this.getNodeParameter('authentication', index) as string;
-               if (remote) {
-                       try {
-                               if (auth === 'gitExtendedApi' || auth === 'custom') {
-                                       const creds =
+                let remote = this.getNodeParameter('remote', index) as string;
+                const branch = this.getNodeParameter('branch', index) as string;
+                const auth = this.getNodeParameter('authentication', index) as string;
+                const skipLfsSmudge = this.getNodeParameter('skipLfsSmudge', index, false) as boolean;
+                if (remote) {
+                        try {
+                                if (auth === 'gitExtendedApi' || auth === 'custom') {
+                                        const creds =
                                                auth === 'gitExtendedApi'
                                                        ? await this.getCredentials('gitExtendedApi')
                                                        : {
@@ -183,12 +187,13 @@ const commandMap: Record<Operation, CommandBuilder> = {
                                        remote = url.toString();
                                }
                        } catch {}
-               }
-               let cmd = `git -C "${repoPath}" pull`;
-               if (remote) cmd += ` ${remote}`;
-               if (branch) cmd += ` ${branch}`;
-               return { command: cmd };
-	},
+                }
+                let cmd = `git -C "${repoPath}" pull`;
+                if (remote) cmd += ` ${remote}`;
+                if (branch) cmd += ` ${branch}`;
+                if (skipLfsSmudge) cmd = `GIT_LFS_SKIP_SMUDGE=1 ${cmd}`;
+                return { command: cmd };
+        },
 	async [Operation.Branches](_index, repoPath) {
 		return { command: `git -C "${repoPath}" branch` };
 	},
@@ -227,14 +232,16 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		const target = this.getNodeParameter('target', index) as string;
 		return { command: `git -C "${repoPath}" merge ${target}` };
 	},
-	async [Operation.Fetch](index, repoPath) {
-		const remote = this.getNodeParameter('remote', index) as string;
-		const branch = this.getNodeParameter('branch', index) as string;
-		let cmd = `git -C "${repoPath}" fetch`;
-		if (remote) cmd += ` ${remote}`;
-		if (branch) cmd += ` ${branch}`;
-		return { command: cmd };
-	},
+        async [Operation.Fetch](index, repoPath) {
+                const remote = this.getNodeParameter('remote', index) as string;
+                const branch = this.getNodeParameter('branch', index) as string;
+                const skipLfsSmudge = this.getNodeParameter('skipLfsSmudge', index, false) as boolean;
+                let cmd = `git -C "${repoPath}" fetch`;
+                if (remote) cmd += ` ${remote}`;
+                if (branch) cmd += ` ${branch}`;
+                if (skipLfsSmudge) cmd = `GIT_LFS_SKIP_SMUDGE=1 ${cmd}`;
+                return { command: cmd };
+        },
 	async [Operation.Rebase](index, repoPath) {
 		const upstream = this.getNodeParameter('upstream', index) as string;
 		return { command: `git -C "${repoPath}" rebase ${upstream}` };
@@ -591,6 +598,18 @@ export class GitExtended implements INodeType {
                                 displayOptions: {
                                         show: {
                                                 operation: ['push', 'pull', 'fetch', 'lfsPush'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Skip LFS Smudge',
+                                name: 'skipLfsSmudge',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to set GIT_LFS_SKIP_SMUDGE=1 to skip downloading Git LFS objects',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['clone', 'pull', 'fetch'],
                                         },
                                 },
                         },

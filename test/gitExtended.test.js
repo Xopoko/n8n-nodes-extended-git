@@ -719,3 +719,80 @@ test('push operation can skip LFS objects', async () => {
         fs.rmSync(repoDir, { recursive: true, force: true });
         fs.rmSync(remoteDir, { recursive: true, force: true });
 });
+
+test('clone operation can skip LFS smudge', async () => {
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-src-'));
+        require('child_process').execSync('git init', { cwd: repoDir });
+        require('child_process').execSync('git lfs install --local', { cwd: repoDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+        require('child_process').execSync('git lfs track "*.bin"', { cwd: repoDir });
+        fs.writeFileSync(path.join(repoDir, 'file.bin'), 'data');
+        require('child_process').execSync('git add .gitattributes file.bin', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "add"', { cwd: repoDir });
+
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-remote-'));
+        require('child_process').execSync('git init --bare', { cwd: remoteDir });
+        require('child_process').execSync(`git remote add origin ${remoteDir}`, { cwd: repoDir });
+        require('child_process').execSync('git push origin master', { cwd: repoDir });
+
+        const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-clone-'));
+        const node = new GitExtended();
+        const targetPath = path.join(cloneDir, 'cloned');
+        const context = new TestContext({
+                operation: 'clone',
+                repoPath: cloneDir,
+                repoUrl: remoteDir,
+                targetPath,
+                skipLfsSmudge: true,
+        });
+        await node.execute.call(context);
+
+        const content = fs.readFileSync(path.join(targetPath, 'file.bin'), 'utf8');
+        assert.ok(content.includes('version https://git-lfs.github.com/spec/v1'));
+
+        fs.rmSync(repoDir, { recursive: true, force: true });
+        fs.rmSync(remoteDir, { recursive: true, force: true });
+        fs.rmSync(cloneDir, { recursive: true, force: true });
+});
+
+test('pull operation can skip LFS smudge', async () => {
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-remote-'));
+        require('child_process').execSync('git init --bare', { cwd: remoteDir });
+
+        const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-src-'));
+        require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: repoDir });
+        require('child_process').execSync('git lfs install --local', { cwd: repoDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: repoDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: repoDir });
+        require('child_process').execSync('git lfs track "*.bin"', { cwd: repoDir });
+        fs.writeFileSync(path.join(repoDir, 'file.bin'), 'data');
+        require('child_process').execSync('git add .gitattributes file.bin', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "add"', { cwd: repoDir });
+        require('child_process').execSync('git push origin master', { cwd: repoDir });
+
+        const pullDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-lfs-pull-'));
+        require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: pullDir });
+
+        fs.writeFileSync(path.join(repoDir, 'file2.bin'), 'data2');
+        require('child_process').execSync('git add file2.bin', { cwd: repoDir });
+        require('child_process').execSync('git commit -m "add2"', { cwd: repoDir });
+        require('child_process').execSync('git push origin master', { cwd: repoDir });
+
+        const node = new GitExtended();
+        const context = new TestContext({
+                operation: 'pull',
+                repoPath: pullDir,
+                remote: 'origin',
+                branch: 'master',
+                skipLfsSmudge: true,
+        });
+        await node.execute.call(context);
+
+        const content = fs.readFileSync(path.join(pullDir, 'file2.bin'), 'utf8');
+        assert.ok(content.includes('version https://git-lfs.github.com/spec/v1'));
+
+        fs.rmSync(remoteDir, { recursive: true, force: true });
+        fs.rmSync(repoDir, { recursive: true, force: true });
+        fs.rmSync(pullDir, { recursive: true, force: true });
+});
