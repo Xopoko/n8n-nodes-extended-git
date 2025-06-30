@@ -339,6 +339,48 @@ test('push operation supports force push', async () => {
         fs.rmSync(repoDir, { recursive: true, force: true });
 });
 
+test('reset operation can reset to remote branch', async () => {
+        const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-reset-remote-'));
+        require('child_process').execSync('git init --bare', { cwd: remoteDir });
+
+        const pushDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-reset-push-'));
+        require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: pushDir });
+        require('child_process').execSync('git config user.email "test@example.com"', { cwd: pushDir });
+        require('child_process').execSync('git config user.name "Test"', { cwd: pushDir });
+        fs.writeFileSync(path.join(pushDir, 'a.txt'), '1');
+        require('child_process').execSync('git add a.txt', { cwd: pushDir });
+        require('child_process').execSync('git commit -m "first"', { cwd: pushDir });
+        require('child_process').execSync('git push origin master', { cwd: pushDir });
+
+        const localDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-reset-local-'));
+        require('child_process').execSync(`git clone ${remoteDir} .`, { cwd: localDir });
+
+        fs.writeFileSync(path.join(pushDir, 'b.txt'), '2');
+        require('child_process').execSync('git add b.txt', { cwd: pushDir });
+        require('child_process').execSync('git commit -m "second"', { cwd: pushDir });
+        require('child_process').execSync('git push origin master', { cwd: pushDir });
+
+        require('child_process').execSync('git fetch origin', { cwd: localDir });
+
+        const node = new GitExtended();
+        const context = new TestContext({
+                operation: 'reset',
+                repoPath: localDir,
+                remote: 'origin',
+                branch: 'master',
+                hard: true,
+        });
+        await node.execute.call(context);
+
+        const localHead = require('child_process').execSync('git rev-parse HEAD', { cwd: localDir }).toString().trim();
+        const remoteHead = require('child_process').execSync('git --git-dir ' + remoteDir + ' rev-parse HEAD').toString().trim();
+        assert.strictEqual(localHead, remoteHead);
+
+        fs.rmSync(remoteDir, { recursive: true, force: true });
+        fs.rmSync(pushDir, { recursive: true, force: true });
+        fs.rmSync(localDir, { recursive: true, force: true });
+});
+
 test('rebase operation rebases branch', async () => {
 	const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-ext-rebase-'));
 	require('child_process').execSync('git init', { cwd: repoDir });
@@ -436,8 +478,8 @@ test('reset operation resets to commit', async () => {
 		.toString()
 		.trim();
 
-	const node = new GitExtended();
-	const context = new TestContext({ operation: 'reset', repoPath: repoDir, commit: first });
+        const node = new GitExtended();
+        const context = new TestContext({ operation: 'reset', repoPath: repoDir, commit: first, hard: true });
 	await node.execute.call(context);
 	const head = require('child_process')
 		.execSync('git rev-parse HEAD', { cwd: repoDir })
@@ -461,8 +503,8 @@ test('reset operation discards working changes', async () => {
 		.trim();
 	fs.writeFileSync(path.join(repoDir, 'a.txt'), '2');
 
-	const node = new GitExtended();
-	const context = new TestContext({ operation: 'reset', repoPath: repoDir });
+        const node = new GitExtended();
+        const context = new TestContext({ operation: 'reset', repoPath: repoDir, hard: true });
 	await node.execute.call(context);
 
 	const headAfter = require('child_process')

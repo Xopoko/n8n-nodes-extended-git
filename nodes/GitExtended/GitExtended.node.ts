@@ -260,11 +260,21 @@ const commandMap: Record<Operation, CommandBuilder> = {
 		}
 		return { command: `git -C "${repoPath}" revert ${commit} --no-edit` };
 	},
-	async [Operation.Reset](index, repoPath) {
-		const commit = this.getNodeParameter('commit', index, '') as string;
-		const commitArg = commit ? ` ${commit}` : '';
-		return { command: `git -C "${repoPath}" reset --hard${commitArg}` };
-	},
+        async [Operation.Reset](index, repoPath) {
+                const commit = this.getNodeParameter('commit', index, '') as string;
+                const remote = this.getNodeParameter('remote', index, '') as string;
+                const branch = this.getNodeParameter('branch', index, '') as string;
+                const hard = this.getNodeParameter('hard', index, false) as boolean;
+
+                let target = commit;
+                if (!target && branch) {
+                        target = remote ? `${remote}/${branch}` : branch;
+                }
+
+                const hardFlag = hard ? ' --hard' : '';
+                const targetArg = target ? ` ${target}` : '';
+                return { command: `git -C "${repoPath}" reset${hardFlag}${targetArg}` };
+        },
 	async [Operation.Stash](_index, repoPath) {
 		return { command: `git -C "${repoPath}" stash` };
 	},
@@ -583,11 +593,11 @@ export class GitExtended implements INodeType {
 				type: 'string',
 				default: 'origin',
 				description: 'Remote name',
-				displayOptions: {
-					show: {
-                                                operation: ['push', 'pull', 'fetch', 'lfsPush'],
-                                        },
-                                },
+                               displayOptions: {
+                                       show: {
+                                               operation: ['push', 'pull', 'fetch', 'lfsPush', 'reset'],
+                                       },
+                               },
                         },
                         {
                                 displayName: 'Branch',
@@ -595,11 +605,11 @@ export class GitExtended implements INodeType {
                                 type: 'string',
                                 default: '',
                                 description: 'Branch name',
-                                displayOptions: {
-                                        show: {
-                                                operation: ['push', 'pull', 'fetch', 'lfsPush'],
-                                        },
-                                },
+                               displayOptions: {
+                                       show: {
+                                               operation: ['push', 'pull', 'fetch', 'lfsPush', 'reset'],
+                                       },
+                               },
                         },
                         {
                                 displayName: 'Skip LFS Smudge',
@@ -701,21 +711,33 @@ export class GitExtended implements INodeType {
 					},
 				},
 			},
-			{
-				displayName: 'Commit ID',
-				name: 'commit',
-				type: 'string',
-				default: '',
-				description: 'Commit hash',
-				displayOptions: {
-					show: {
-						operation: ['cherryPick', 'revert', 'reset'],
-					},
-				},
-			},
-			{
-				displayName: 'Tag Name',
-				name: 'tagName',
+                        {
+                                displayName: 'Commit ID',
+                                name: 'commit',
+                                type: 'string',
+                                default: '',
+                                description: 'Commit hash',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['cherryPick', 'revert', 'reset'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Hard',
+                                name: 'hard',
+                                type: 'boolean',
+                                default: false,
+                                description: 'Whether to perform a hard reset',
+                                displayOptions: {
+                                        show: {
+                                                operation: ['reset'],
+                                        },
+                                },
+                        },
+                        {
+                                displayName: 'Tag Name',
+                                name: 'tagName',
 				type: 'string',
 				default: '',
 				required: true,
